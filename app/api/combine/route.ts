@@ -99,7 +99,7 @@ async function generateWithOpenAI(first: string, second: string) {
             {
               type: "input_text",
               text:
-                "You create playful but logical alchemy element results, Fire+Clay should result in something like 'ceramics' and Steam+Pressure should result in something like 'steam engine', don't be afraid to create imaginary items as well for existence horn+horse can create unicorn or life+clay can create golem. Return JSON only. The element must feel like a plausible fusion of the two inputs. Use exactly one emoji grapheme. Include a short witty one-sentence flavor text with a playful, lightly sarcastic narrator tone that is safe for all ages, something like, You've discovered fire! The Cavemen would be so proud."
+                "You create playful but logical alchemy element results, Fire+Clay should result in something like 'ceramics' and Steam+Pressure should result in something like 'steam engine, when you combine items consider what would happen in the real world or a lab, don't just combine the two names together unless it makes sense, don't be afraid to create imaginary items as well for existence horn+horse can create unicorn or life+clay can create golem. Return JSON only. The element must feel like a plausible fusion of the two inputs, and avoid using long singular words because they will be in a constrained environment. Use exactly one emoji grapheme. Include a short witty one-sentence flavor text with a playful, lightly sarcastic narrator tone that is safe for all ages, something like, You've discovered fire! The Cavemen would be so proud."
             }
           ]
         },

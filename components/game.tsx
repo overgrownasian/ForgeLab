@@ -12,7 +12,12 @@ import {
 import type { ElementRecord, RecipeResult, SortMode, WorkbenchItem } from "@/lib/types";
 
 const STORAGE_KEY = "alchemy-lab-state";
+const THEME_STORAGE_KEY = "alchemy-lab-theme";
 const ITEM_SIZE = 78;
+
+const THEMES = ["default", "fantasy", "sci-fi", "xianxia", "radar", "matrix", "solar"] as const;
+
+type ThemeName = (typeof THEMES)[number];
 
 type CachedCombination = {
   element: string;
@@ -99,10 +104,31 @@ function sortElements(elements: ElementRecord[], mode: SortMode) {
   });
 }
 
+function normalizeElements(elements: ElementRecord[]) {
+  const uniqueByName = new Map<string, ElementRecord>();
+
+  for (const entry of elements) {
+    const key = entry.element.trim().toLowerCase();
+    const existing = uniqueByName.get(key);
+
+    if (!existing || entry.discoveredAt > existing.discoveredAt) {
+      uniqueByName.set(key, entry);
+    }
+  }
+
+  return Array.from(uniqueByName.values());
+}
+
+function isThemeName(value: string): value is ThemeName {
+  return THEMES.includes(value as ThemeName);
+}
+
 export function Game() {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const trashRef = useRef<HTMLButtonElement | null>(null);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
+  const desktopMenuRef = useRef<HTMLDivElement | null>(null);
+  const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const dragRef = useRef<{
     id: string;
     offsetX: number;
@@ -138,7 +164,9 @@ export function Game() {
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [focusPanel, setFocusPanel] = useState<"split" | "elements" | "workbench">("split");
+  const [theme, setTheme] = useState<ThemeName>("default");
   const [message, setMessage] = useState<string>("Drag elements together to combine them.");
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
@@ -155,10 +183,12 @@ export function Game() {
         const parsed = JSON.parse(saved) as DiscoveryState;
         if (parsed.elements?.length) {
           setElements(
-            parsed.elements.map((entry) => ({
-              ...entry,
-              flavorText: entry.flavorText ?? buildFlavorText(entry.element)
-            }))
+            normalizeElements(
+              parsed.elements.map((entry) => ({
+                ...entry,
+                flavorText: entry.flavorText ?? buildFlavorText(entry.element)
+              }))
+            )
           );
         }
         if (parsed.cachedCombinations) {
@@ -179,6 +209,13 @@ export function Game() {
       window.localStorage.removeItem(STORAGE_KEY);
     } finally {
       setReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (savedTheme && isThemeName(savedTheme)) {
+      setTheme(savedTheme);
     }
   }, []);
 
@@ -213,6 +250,36 @@ export function Game() {
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [cachedCombinations, elements, ready]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [ready, theme]);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (!desktopMenuOpen) {
+        return;
+      }
+
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (desktopMenuRef.current?.contains(target) || desktopMenuButtonRef.current?.contains(target)) {
+        return;
+      }
+
+      setDesktopMenuOpen(false);
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [desktopMenuOpen]);
 
   useEffect(() => {
     function onPointerMove(event: PointerEvent) {
@@ -287,6 +354,10 @@ export function Game() {
         dragRef.current = null;
         const current = workbench.find((item) => item.id === active.id);
         if (current && active.moved) {
+          if (current.isProcessing) {
+            return;
+          }
+
           const trashBounds = trashRef.current?.getBoundingClientRect();
           if (
             trashBounds &&
@@ -302,6 +373,10 @@ export function Game() {
 
           const target = workbench.find((item) => {
             if (item.id === current.id) {
+              return false;
+            }
+
+            if (item.isProcessing) {
               return false;
             }
 
@@ -450,12 +525,12 @@ export function Game() {
     setFocusPanel((current) => (current === panel ? "split" : panel));
   }
 
-  function beginDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
-    const item = workbench.find((entry) => entry.id === id);
-    if (item?.isProcessing) {
-      return;
-    }
+  function handleThemeChange(nextTheme: ThemeName) {
+    setTheme(nextTheme);
+    setMessage(`${nextTheme.charAt(0).toUpperCase()}${nextTheme.slice(1)} theme activated.`);
+  }
 
+  function beginDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
     const bounds = event.currentTarget.getBoundingClientRect();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     dragRef.current = {
@@ -664,15 +739,17 @@ export function Game() {
     const discoveryTime = Date.now();
 
     if (!alreadyKnown) {
-      setElements((current) => [
-        ...current,
-        {
-          element: result.element,
-          emoji: result.emoji,
-          flavorText: result.flavorText,
-          discoveredAt: discoveryTime
-        }
-      ]);
+      setElements((current) =>
+        normalizeElements([
+          ...current,
+          {
+            element: result.element,
+            emoji: result.emoji,
+            flavorText: result.flavorText,
+            discoveredAt: discoveryTime
+          }
+        ])
+      );
 
       setCelebration({
         firstElement: inputs.first,
@@ -788,7 +865,7 @@ export function Game() {
   }
 
   return (
-    <main className={`page-shell panel-${focusPanel}`}>
+    <main className={`page-shell panel-${focusPanel} theme-${theme}`}>
       <div
         className={`mobile-menu ${mobileMenuOpen ? "open" : ""}`}
         onClick={() => setMobileMenuOpen(false)}
@@ -818,6 +895,19 @@ export function Game() {
                 <option value="za">Z-A</option>
                 <option value="recent">Most recent</option>
                 <option value="oldest">Oldest</option>
+              </select>
+            </label>
+
+            <label className="sort-select">
+              <span>Theme</span>
+              <select value={theme} onChange={(event) => handleThemeChange(event.target.value as ThemeName)}>
+                <option value="default">Default</option>
+                <option value="fantasy">Fantasy</option>
+                <option value="sci-fi">Sci-Fi</option>
+                <option value="xianxia">Xianxia</option>
+                <option value="radar">Radar</option>
+                <option value="matrix">Matrix</option>
+                <option value="solar">Solar</option>
               </select>
             </label>
 
@@ -868,10 +958,21 @@ export function Game() {
             >
               Elements
             </button>
-            <p className="panel-kicker desktop-only">Elements</p>
+            <div className="panel-title-row">
+              <button
+                className="ghost-button desktop-menu-button desktop-only"
+                onClick={() => setDesktopMenuOpen((current) => !current)}
+                ref={desktopMenuButtonRef}
+                type="button"
+                aria-label="Open desktop menu"
+              >
+                ☰
+              </button>
+              <p className="panel-kicker desktop-only">Elements</p>
+            </div>
             <div className="panel-actions">
               <button
-                className={`ghost-button panel-toggle ${focusPanel === "elements" ? "active" : ""}`}
+                className={`ghost-button panel-toggle mobile-only ${focusPanel === "elements" ? "active" : ""}`}
                 onClick={() => togglePanelFocus("elements")}
                 type="button"
                 aria-label={focusPanel === "elements" ? "Exit fullscreen" : "Enter fullscreen"}
@@ -880,6 +981,24 @@ export function Game() {
               </button>
             </div>
           </div>
+
+          {desktopMenuOpen ? (
+            <div className="desktop-menu-panel" ref={desktopMenuRef}>
+              <label className="sort-select">
+                <span>Theme</span>
+                <select value={theme} onChange={(event) => handleThemeChange(event.target.value as ThemeName)}>
+                  <option value="default">Default</option>
+                  <option value="fantasy">Fantasy</option>
+                  <option value="sci-fi">Sci-Fi</option>
+                  <option value="xianxia">Xianxia</option>
+                  <option value="radar">Radar</option>
+                  <option value="matrix">Matrix</option>
+                  <option value="solar">Solar</option>
+                </select>
+              </label>
+              <p className="desktop-menu-note">More menu options can live here later.</p>
+            </div>
+          ) : null}
 
           <div className="desktop-controls">
             <label className="sort-select">
@@ -965,7 +1084,7 @@ export function Game() {
             </div>
             <div className="panel-actions mobile-inline-actions">
               <button
-                className={`ghost-button panel-toggle ${focusPanel === "workbench" ? "active" : ""}`}
+                className={`ghost-button panel-toggle mobile-only ${focusPanel === "workbench" ? "active" : ""}`}
                 onClick={() => togglePanelFocus("workbench")}
                 type="button"
                 aria-label={focusPanel === "workbench" ? "Exit fullscreen" : "Enter fullscreen"}

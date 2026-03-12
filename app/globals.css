@@ -1,6 +1,10 @@
 :root {
   --bg: #120f0a;
   --bg-deep: #1d140d;
+  --app-background:
+    radial-gradient(circle at top, rgba(255, 164, 71, 0.2), transparent 24%),
+    radial-gradient(circle at 85% 15%, rgba(126, 224, 255, 0.14), transparent 18%),
+    linear-gradient(180deg, #24170f 0%, #120f0a 46%, #0b0907 100%);
   --panel: rgba(31, 22, 16, 0.88);
   --panel-strong: rgba(49, 35, 26, 0.95);
   --line: rgba(255, 214, 153, 0.16);
@@ -10,6 +14,28 @@
   --accent-strong: #ff7a18;
   --accent-cool: #7ee0ff;
   --danger: #ff6868;
+  --ghost-fill: rgba(126, 224, 255, 0.08);
+  --danger-fill: rgba(255, 104, 104, 0.16);
+  --chip-fill: rgba(255, 255, 255, 0.04);
+  --chip-emoji-fill: rgba(255, 255, 255, 0.06);
+  --chip-hover-fill: rgba(255, 179, 71, 0.08);
+  --status-fill: rgba(255, 255, 255, 0.04);
+  --board-line: rgba(255, 255, 255, 0.04);
+  --board-glow: rgba(255, 179, 71, 0.09);
+  --board-surface: linear-gradient(180deg, rgba(8, 8, 8, 0.58), rgba(19, 14, 10, 0.86));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(34, 24, 17, 0.98), rgba(20, 14, 10, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(62, 36, 18, 0.98), rgba(26, 18, 12, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(34, 24, 17, 0.98), rgba(20, 14, 10, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(255, 179, 71, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(52, 31, 18, 0.98), rgba(20, 14, 10, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(14, 52, 64, 0.98), rgba(13, 17, 26, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(126, 224, 255, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(14, 52, 64, 0.98), rgba(13, 17, 26, 0.98));
+  --trash-fill: rgba(20, 14, 10, 0.72);
+  --workbench-item-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  --processing-bg: linear-gradient(180deg, rgba(255, 179, 71, 0.18), rgba(255, 255, 255, 0.06));
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
 }
 
@@ -27,10 +53,7 @@ body {
   min-height: 100dvh;
   overflow: hidden;
   font-family: var(--font-sans), sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(255, 164, 71, 0.2), transparent 24%),
-    radial-gradient(circle at 85% 15%, rgba(126, 224, 255, 0.14), transparent 18%),
-    linear-gradient(180deg, #24170f 0%, #120f0a 46%, #0b0907 100%);
+  background: #080706;
   color: var(--text);
 }
 
@@ -44,6 +67,340 @@ select {
   min-height: 100dvh;
   padding: 14px;
   overflow: hidden;
+  background: var(--app-background);
+}
+
+.page-shell.theme-fantasy {
+  --app-background:
+    radial-gradient(circle at 14% 10%, rgba(223, 160, 67, 0.2), transparent 20%),
+    radial-gradient(circle at 84% 18%, rgba(70, 168, 158, 0.16), transparent 18%),
+    linear-gradient(180deg, #341825 0%, #1e1020 44%, #100a14 100%);
+  --panel: rgba(57, 26, 43, 0.9);
+  --panel-strong: rgba(84, 38, 58, 0.96);
+  --line: rgba(216, 177, 101, 0.2);
+  --text: #fff3df;
+  --muted: #d2bcaa;
+  --accent: #d8a443;
+  --accent-strong: #b84f36;
+  --accent-cool: #77c8ba;
+  --ghost-fill: rgba(119, 200, 186, 0.1);
+  --danger-fill: rgba(184, 79, 54, 0.22);
+  --chip-fill: rgba(255, 247, 233, 0.05);
+  --chip-emoji-fill: rgba(255, 247, 233, 0.08);
+  --chip-hover-fill: rgba(216, 164, 67, 0.12);
+  --status-fill: rgba(255, 247, 233, 0.06);
+  --board-line: rgba(216, 177, 101, 0.05);
+  --board-glow: rgba(184, 79, 54, 0.1);
+  --board-surface: linear-gradient(180deg, rgba(39, 17, 27, 0.82), rgba(21, 11, 19, 0.96));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(74, 34, 52, 0.98), rgba(32, 16, 28, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(98, 44, 59, 0.98), rgba(39, 20, 31, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(74, 34, 52, 0.98), rgba(32, 16, 28, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(216, 164, 67, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(87, 38, 54, 0.98), rgba(31, 17, 28, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(34, 83, 88, 0.98), rgba(18, 28, 33, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(119, 200, 186, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(34, 83, 88, 0.98), rgba(18, 28, 33, 0.98));
+  --trash-fill: rgba(27, 12, 20, 0.82);
+  --workbench-item-bg: linear-gradient(180deg, rgba(255, 244, 226, 0.14), rgba(255, 255, 255, 0.04));
+  --processing-bg: linear-gradient(180deg, rgba(216, 164, 67, 0.22), rgba(255, 255, 255, 0.05));
+}
+
+.page-shell.theme-fantasy .workbench {
+  background:
+    linear-gradient(var(--board-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--board-line) 1px, transparent 1px),
+    radial-gradient(circle at top, var(--board-glow), transparent 22%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(216, 164, 67, 0.045) 0 18px,
+      rgba(119, 200, 186, 0.02) 18px 36px
+    ),
+    var(--board-surface);
+}
+
+.page-shell.theme-fantasy .elements-panel,
+.page-shell.theme-fantasy .workbench-shell,
+.page-shell.theme-fantasy .desktop-menu-panel,
+.page-shell.theme-fantasy .celebration-card,
+.page-shell.theme-fantasy .confirmation-card {
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 231, 193, 0.05);
+}
+
+.page-shell.theme-fantasy .panel-kicker,
+.page-shell.theme-fantasy .stat-label,
+.page-shell.theme-fantasy .share-discovery-label,
+.page-shell.theme-fantasy .celebration-label {
+  color: var(--accent);
+}
+
+.page-shell.theme-sci-fi {
+  --app-background:
+    radial-gradient(circle at 15% 12%, rgba(58, 248, 229, 0.18), transparent 22%),
+    radial-gradient(circle at 78% 16%, rgba(54, 117, 255, 0.16), transparent 20%),
+    linear-gradient(180deg, #07141e 0%, #061018 44%, #04070d 100%);
+  --panel: rgba(9, 21, 31, 0.88);
+  --panel-strong: rgba(13, 34, 46, 0.96);
+  --line: rgba(80, 217, 255, 0.18);
+  --text: #e9fbff;
+  --muted: #9dc7d3;
+  --accent: #58f2ff;
+  --accent-strong: #2d9dff;
+  --accent-cool: #93f7ff;
+  --ghost-fill: rgba(88, 242, 255, 0.1);
+  --danger-fill: rgba(255, 98, 157, 0.18);
+  --chip-fill: rgba(255, 255, 255, 0.03);
+  --chip-emoji-fill: rgba(255, 255, 255, 0.07);
+  --chip-hover-fill: rgba(88, 242, 255, 0.08);
+  --status-fill: rgba(255, 255, 255, 0.04);
+  --board-line: rgba(88, 242, 255, 0.05);
+  --board-glow: rgba(88, 242, 255, 0.08);
+  --board-surface: linear-gradient(180deg, rgba(5, 15, 22, 0.78), rgba(4, 9, 15, 0.96));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(8, 28, 40, 0.98), rgba(6, 16, 26, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(10, 39, 58, 0.98), rgba(6, 18, 31, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(8, 28, 40, 0.98), rgba(6, 16, 26, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(88, 242, 255, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(10, 39, 58, 0.98), rgba(6, 18, 31, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(13, 52, 68, 0.98), rgba(5, 14, 26, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(147, 247, 255, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(13, 52, 68, 0.98), rgba(5, 14, 26, 0.98));
+  --trash-fill: rgba(5, 17, 24, 0.8);
+  --workbench-item-bg: linear-gradient(180deg, rgba(147, 247, 255, 0.12), rgba(255, 255, 255, 0.04));
+  --processing-bg: linear-gradient(180deg, rgba(88, 242, 255, 0.2), rgba(255, 255, 255, 0.05));
+}
+
+.page-shell.theme-xianxia {
+  --app-background:
+    radial-gradient(circle at 18% 12%, rgba(196, 44, 36, 0.18), transparent 22%),
+    radial-gradient(circle at 82% 20%, rgba(125, 166, 132, 0.14), transparent 20%),
+    radial-gradient(circle at 50% 0%, rgba(244, 219, 179, 0.12), transparent 28%),
+    linear-gradient(180deg, #2a1712 0%, #160f10 48%, #0c090b 100%);
+  --panel: rgba(54, 27, 21, 0.9);
+  --panel-strong: rgba(88, 43, 31, 0.96);
+  --line: rgba(220, 184, 124, 0.2);
+  --text: #f7ead9;
+  --muted: #cdb49a;
+  --accent: #ddb36a;
+  --accent-strong: #b94434;
+  --accent-cool: #9fbf9d;
+  --ghost-fill: rgba(159, 191, 157, 0.1);
+  --danger-fill: rgba(185, 68, 52, 0.22);
+  --chip-fill: rgba(243, 226, 200, 0.04);
+  --chip-emoji-fill: rgba(243, 226, 200, 0.07);
+  --chip-hover-fill: rgba(221, 179, 106, 0.11);
+  --status-fill: rgba(243, 226, 200, 0.04);
+  --board-line: rgba(214, 194, 160, 0.05);
+  --board-glow: rgba(159, 191, 157, 0.08);
+  --board-surface: linear-gradient(180deg, rgba(31, 16, 15, 0.78), rgba(17, 10, 11, 0.95));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(66, 31, 24, 0.98), rgba(27, 14, 16, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(94, 43, 31, 0.98), rgba(36, 18, 19, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(66, 31, 24, 0.98), rgba(27, 14, 16, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(221, 179, 106, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(73, 35, 28, 0.98), rgba(28, 14, 16, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(70, 74, 53, 0.98), rgba(26, 18, 16, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(159, 191, 157, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(70, 74, 53, 0.98), rgba(26, 18, 16, 0.98));
+  --trash-fill: rgba(26, 12, 12, 0.82);
+  --workbench-item-bg: linear-gradient(180deg, rgba(243, 226, 200, 0.12), rgba(255, 255, 255, 0.03));
+  --processing-bg: linear-gradient(180deg, rgba(221, 179, 106, 0.2), rgba(255, 255, 255, 0.04));
+}
+
+.page-shell.theme-xianxia .workbench {
+  background:
+    linear-gradient(var(--board-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--board-line) 1px, transparent 1px),
+    radial-gradient(circle at top, var(--board-glow), transparent 22%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 24%),
+    var(--board-surface);
+}
+
+.page-shell.theme-xianxia .elements-panel,
+.page-shell.theme-xianxia .workbench-shell,
+.page-shell.theme-xianxia .desktop-menu-panel,
+.page-shell.theme-xianxia .celebration-card,
+.page-shell.theme-xianxia .confirmation-card {
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(244, 219, 179, 0.05);
+}
+
+.page-shell.theme-radar {
+  --app-background:
+    radial-gradient(circle at center, rgba(83, 255, 169, 0.08), transparent 28%),
+    radial-gradient(circle at 50% 50%, rgba(62, 194, 112, 0.08), transparent 48%),
+    linear-gradient(180deg, #04110a 0%, #020a06 52%, #010503 100%);
+  --panel: rgba(5, 25, 14, 0.9);
+  --panel-strong: rgba(8, 37, 20, 0.96);
+  --line: rgba(97, 255, 164, 0.18);
+  --text: #d9ffe7;
+  --muted: #89cda0;
+  --accent: #5cff9e;
+  --accent-strong: #21c66b;
+  --accent-cool: #9dffbf;
+  --ghost-fill: rgba(92, 255, 158, 0.08);
+  --danger-fill: rgba(142, 255, 178, 0.12);
+  --chip-fill: rgba(92, 255, 158, 0.04);
+  --chip-emoji-fill: rgba(92, 255, 158, 0.08);
+  --chip-hover-fill: rgba(92, 255, 158, 0.1);
+  --status-fill: rgba(92, 255, 158, 0.05);
+  --board-line: rgba(92, 255, 158, 0.08);
+  --board-glow: rgba(92, 255, 158, 0.12);
+  --board-surface: linear-gradient(180deg, rgba(3, 16, 9, 0.84), rgba(2, 8, 5, 0.98));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(7, 33, 19, 0.98), rgba(3, 15, 9, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(10, 42, 23, 0.98), rgba(4, 16, 10, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(7, 33, 19, 0.98), rgba(3, 15, 9, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(92, 255, 158, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(10, 42, 23, 0.98), rgba(4, 16, 10, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(8, 52, 28, 0.98), rgba(3, 16, 10, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(157, 255, 191, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(8, 52, 28, 0.98), rgba(3, 16, 10, 0.98));
+  --trash-fill: rgba(3, 14, 8, 0.82);
+  --workbench-item-bg: linear-gradient(180deg, rgba(92, 255, 158, 0.14), rgba(92, 255, 158, 0.04));
+  --processing-bg: linear-gradient(180deg, rgba(92, 255, 158, 0.22), rgba(255, 255, 255, 0.04));
+}
+
+.page-shell.theme-matrix {
+  --app-background:
+    radial-gradient(circle at 12% 10%, rgba(120, 255, 140, 0.08), transparent 22%),
+    radial-gradient(circle at 86% 16%, rgba(56, 214, 104, 0.08), transparent 18%),
+    linear-gradient(180deg, #030603 0%, #010301 50%, #000200 100%);
+  --panel: rgba(5, 10, 5, 0.92);
+  --panel-strong: rgba(8, 16, 8, 0.98);
+  --line: rgba(102, 255, 102, 0.16);
+  --text: #b7ffb7;
+  --muted: #6cb56c;
+  --accent: #7dff7d;
+  --accent-strong: #39d939;
+  --accent-cool: #a5ffa5;
+  --ghost-fill: rgba(125, 255, 125, 0.08);
+  --danger-fill: rgba(72, 173, 72, 0.18);
+  --chip-fill: rgba(125, 255, 125, 0.03);
+  --chip-emoji-fill: rgba(125, 255, 125, 0.06);
+  --chip-hover-fill: rgba(125, 255, 125, 0.08);
+  --status-fill: rgba(125, 255, 125, 0.04);
+  --board-line: rgba(125, 255, 125, 0.06);
+  --board-glow: rgba(125, 255, 125, 0.08);
+  --board-surface: linear-gradient(180deg, rgba(2, 8, 2, 0.86), rgba(1, 4, 1, 0.98));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(7, 14, 7, 0.98), rgba(2, 6, 2, 0.98));
+  --card-bg: linear-gradient(180deg, rgba(8, 18, 8, 0.98), rgba(2, 7, 2, 0.98));
+  --confirm-bg: linear-gradient(180deg, rgba(7, 14, 7, 0.98), rgba(2, 6, 2, 0.98));
+  --share-bg:
+    radial-gradient(circle at top, rgba(125, 255, 125, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(8, 18, 8, 0.98), rgba(2, 7, 2, 0.98));
+  --global-card-bg: linear-gradient(180deg, rgba(10, 24, 10, 0.98), rgba(2, 7, 2, 0.98));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(165, 255, 165, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(10, 24, 10, 0.98), rgba(2, 7, 2, 0.98));
+  --trash-fill: rgba(3, 7, 3, 0.86);
+  --workbench-item-bg: linear-gradient(180deg, rgba(125, 255, 125, 0.12), rgba(125, 255, 125, 0.03));
+  --processing-bg: linear-gradient(180deg, rgba(125, 255, 125, 0.18), rgba(255, 255, 255, 0.02));
+}
+
+.page-shell.theme-solar {
+  --app-background:
+    radial-gradient(circle at 14% 10%, rgba(255, 190, 87, 0.22), transparent 22%),
+    radial-gradient(circle at 82% 16%, rgba(255, 224, 145, 0.24), transparent 20%),
+    linear-gradient(180deg, #fff5de 0%, #f8ebcb 52%, #f1dfb8 100%);
+  --panel: rgba(255, 248, 234, 0.9);
+  --panel-strong: rgba(250, 238, 210, 0.98);
+  --line: rgba(190, 134, 55, 0.18);
+  --text: #55361d;
+  --muted: #8e6b47;
+  --accent: #e7a53f;
+  --accent-strong: #d9782a;
+  --accent-cool: #b66b2f;
+  --danger: #c5583d;
+  --ghost-fill: rgba(231, 165, 63, 0.12);
+  --danger-fill: rgba(197, 88, 61, 0.14);
+  --chip-fill: rgba(255, 255, 255, 0.55);
+  --chip-emoji-fill: rgba(255, 247, 228, 0.95);
+  --chip-hover-fill: rgba(231, 165, 63, 0.14);
+  --status-fill: rgba(255, 255, 255, 0.52);
+  --board-line: rgba(187, 138, 66, 0.08);
+  --board-glow: rgba(255, 202, 116, 0.2);
+  --board-surface: linear-gradient(180deg, rgba(255, 252, 242, 0.96), rgba(246, 234, 203, 0.98));
+  --desktop-menu-bg: linear-gradient(180deg, rgba(255, 248, 234, 0.99), rgba(244, 230, 198, 0.99));
+  --card-bg: linear-gradient(180deg, rgba(255, 245, 223, 0.99), rgba(243, 223, 184, 0.99));
+  --confirm-bg: linear-gradient(180deg, rgba(255, 248, 234, 0.99), rgba(244, 230, 198, 0.99));
+  --share-bg:
+    radial-gradient(circle at top, rgba(255, 204, 112, 0.26), transparent 28%),
+    linear-gradient(180deg, rgba(255, 247, 229, 0.99), rgba(241, 223, 181, 0.99));
+  --global-card-bg: linear-gradient(180deg, rgba(255, 237, 203, 0.99), rgba(239, 214, 163, 0.99));
+  --global-share-bg:
+    radial-gradient(circle at top, rgba(255, 223, 148, 0.28), transparent 30%),
+    linear-gradient(180deg, rgba(255, 244, 220, 0.99), rgba(238, 213, 162, 0.99));
+  --trash-fill: rgba(247, 231, 198, 0.92);
+  --workbench-item-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 230, 194, 0.86));
+  --processing-bg: linear-gradient(180deg, rgba(255, 206, 120, 0.34), rgba(255, 249, 235, 0.9));
+  --shadow: 0 24px 80px rgba(120, 83, 33, 0.18);
+}
+
+.page-shell.theme-solar .desktop-menu-button {
+  color: var(--accent-strong);
+}
+
+.page-shell.theme-solar .ghost-button,
+.page-shell.theme-solar .panel-toggle,
+.page-shell.theme-solar .panel-label-button,
+.page-shell.theme-solar .mobile-menu-title {
+  color: var(--accent-strong);
+}
+
+.page-shell.theme-solar .mobile-menu-card,
+.page-shell.theme-solar .celebration-card,
+.page-shell.theme-solar .share-card,
+.page-shell.theme-solar .share-card.global,
+.page-shell.theme-solar .confirmation-card {
+  color: var(--text);
+}
+
+.page-shell.theme-solar .stat-card,
+.page-shell.theme-solar .sort-select select,
+.page-shell.theme-solar .element-search {
+  background: rgba(255, 248, 234, 0.92);
+  color: var(--text);
+  border-color: rgba(190, 134, 55, 0.18);
+}
+
+.page-shell.theme-solar .sort-select,
+.page-shell.theme-solar .sort-select span {
+  color: var(--muted);
+}
+
+.page-shell.theme-solar .stat-card strong {
+  color: var(--accent-strong);
+}
+
+.page-shell.theme-solar .share-discovery-label,
+.page-shell.theme-solar .celebration-label,
+.page-shell.theme-solar .share-plus,
+.page-shell.theme-solar .share-arrow,
+.page-shell.theme-solar .panel-kicker,
+.page-shell.theme-solar .stat-label {
+  color: var(--accent-strong);
+}
+
+.page-shell.theme-solar .share-status,
+.page-shell.theme-solar .share-tagline,
+.page-shell.theme-solar .share-flavor,
+.page-shell.theme-solar .confirmation-card p:last-of-type,
+.page-shell.theme-solar .celebration-card p:last-of-type {
+  color: var(--muted);
+}
+
+.page-shell.theme-solar .share-card.global {
+  box-shadow:
+    0 0 0 1px rgba(215, 149, 54, 0.14) inset,
+    0 0 30px rgba(255, 191, 94, 0.12);
 }
 
 .elements-panel,
@@ -79,11 +436,11 @@ p {
 }
 
 .desktop-only {
-  display: block;
+  display: block !important;
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 .desktop-controls {
@@ -111,7 +468,7 @@ p {
   height: 52px;
   border: 1px dashed rgba(255, 255, 255, 0.16);
   border-radius: 16px;
-  background: rgba(20, 14, 10, 0.72);
+  background: var(--trash-fill);
   color: var(--muted);
   font-size: 1.25rem;
   user-select: none;
@@ -171,6 +528,44 @@ p {
   gap: 8px;
 }
 
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-menu-button {
+  min-width: 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent-cool);
+}
+
+.desktop-menu-panel {
+  position: absolute;
+  top: 58px;
+  right: 14px;
+  z-index: 20;
+  width: min(260px, calc(100% - 28px));
+  min-height: 140px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--desktop-menu-bg);
+  box-shadow: var(--shadow);
+}
+
+.desktop-menu-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .panel-toggle {
   display: none;
   min-width: 40px;
@@ -225,7 +620,7 @@ p {
   padding: 7px 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  background: rgba(13, 11, 10, 0.82);
+  background: color-mix(in srgb, var(--panel-strong) 72%, black 28%);
   color: var(--text);
 }
 
@@ -252,7 +647,7 @@ p {
   padding: 9px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--chip-fill);
   color: var(--text);
   transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
   text-align: left;
@@ -263,7 +658,7 @@ p {
 .element-chip:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 179, 71, 0.45);
-  background: rgba(255, 179, 71, 0.08);
+  background: var(--chip-hover-fill);
 }
 
 .chip-drag-zone {
@@ -281,7 +676,7 @@ p {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--chip-emoji-fill);
   font-size: 1.1rem;
 }
 
@@ -366,12 +761,12 @@ p {
 }
 
 .ghost-button {
-  background: rgba(126, 224, 255, 0.08);
+  background: var(--ghost-fill);
   color: #eaf9ff;
 }
 
 .danger-button {
-  background: rgba(255, 104, 104, 0.16);
+  background: var(--danger-fill);
   color: #ffd5d5;
 }
 
@@ -385,7 +780,7 @@ p {
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--status-fill);
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -403,10 +798,10 @@ p {
   border-radius: 18px;
   border: 1px dashed rgba(255, 255, 255, 0.14);
   background:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    radial-gradient(circle at top, rgba(255, 179, 71, 0.09), transparent 22%),
-    linear-gradient(180deg, rgba(8, 8, 8, 0.58), rgba(19, 14, 10, 0.86));
+    linear-gradient(var(--board-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--board-line) 1px, transparent 1px),
+    radial-gradient(circle at top, var(--board-glow), transparent 22%),
+    var(--board-surface);
   background-size: 36px 36px, 36px 36px, auto, auto;
 }
 
@@ -430,7 +825,7 @@ p {
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  background: var(--workbench-item-bg);
   color: var(--text);
   cursor: grab;
   user-select: none;
@@ -450,10 +845,10 @@ p {
 }
 
 .workbench-item.processing {
-  cursor: wait;
+  cursor: grab;
   border-style: dashed;
   border-color: rgba(255, 179, 71, 0.45);
-  background: linear-gradient(180deg, rgba(255, 179, 71, 0.18), rgba(255, 255, 255, 0.06));
+  background: var(--processing-bg);
   animation: processing-pulse 1.1s ease-in-out infinite;
 }
 
@@ -463,10 +858,13 @@ p {
 
 .workbench-name {
   margin-top: 4px;
-  font-size: 0.68rem;
+  max-width: 100%;
+  font-size: 0.64rem;
   font-weight: 700;
   text-align: center;
-  line-height: 1.15;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .celebration-backdrop {
@@ -493,7 +891,7 @@ p {
   padding: 24px;
   border: 1px solid rgba(255, 179, 71, 0.2);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(34, 24, 17, 0.98), rgba(20, 14, 10, 0.98));
+  background: var(--confirm-bg);
   box-shadow: var(--shadow);
 }
 
@@ -522,7 +920,7 @@ p {
   padding: 28px;
   border-radius: 28px;
   border: 1px solid rgba(255, 179, 71, 0.35);
-  background: linear-gradient(180deg, rgba(62, 36, 18, 0.98), rgba(26, 18, 12, 0.98));
+  background: var(--card-bg);
   text-align: center;
   box-shadow: var(--shadow);
   animation: pop-in 220ms ease-out;
@@ -542,17 +940,13 @@ p {
   padding: 24px 24px 22px;
   border-radius: 24px;
   border: 1px solid rgba(255, 179, 71, 0.2);
-  background:
-    radial-gradient(circle at top, rgba(255, 179, 71, 0.18), transparent 28%),
-    linear-gradient(180deg, rgba(52, 31, 18, 0.98), rgba(20, 14, 10, 0.98));
+  background: var(--share-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .share-card.global {
   border-color: rgba(126, 224, 255, 0.45);
-  background:
-    radial-gradient(circle at top, rgba(126, 224, 255, 0.18), transparent 30%),
-    linear-gradient(180deg, rgba(14, 52, 64, 0.98), rgba(13, 17, 26, 0.98));
+  background: var(--global-share-bg);
   box-shadow:
     0 0 0 1px rgba(126, 224, 255, 0.18) inset,
     0 0 30px rgba(126, 224, 255, 0.12);
@@ -667,7 +1061,7 @@ p {
 
 .celebration-card.global {
   border-color: rgba(126, 224, 255, 0.45);
-  background: linear-gradient(180deg, rgba(14, 52, 64, 0.98), rgba(13, 17, 26, 0.98));
+  background: var(--global-card-bg);
 }
 
 .celebration-burst {
@@ -770,11 +1164,11 @@ p {
   }
 
   .desktop-only {
-    display: none;
+    display: none !important;
   }
 
   .mobile-only {
-    display: inline-flex;
+    display: inline-flex !important;
   }
 
   .panel-toggle {
@@ -848,7 +1242,7 @@ p {
     padding: 14px;
     border: 1px solid var(--line);
     border-radius: 18px;
-    background: rgba(20, 14, 10, 0.96);
+    background: var(--desktop-menu-bg);
     box-shadow: var(--shadow);
   }
 
