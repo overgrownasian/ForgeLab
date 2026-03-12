@@ -1,0 +1,8 @@
+node_modules
+.next
+.next-dev
+build
+.git
+.env.local
+npm-debug.log*
+Docker/.env.docker.local

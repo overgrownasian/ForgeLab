@@ -1,0 +1,10 @@
+services:
+  forgelab:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile
+    image: forgelab:latest
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker.local

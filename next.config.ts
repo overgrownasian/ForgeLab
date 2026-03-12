@@ -4,6 +4,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: isDevelopment ? undefined : "standalone",
   distDir: isDevelopment ? ".next-dev" : "build"
 };
 
