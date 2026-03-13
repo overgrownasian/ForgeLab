@@ -6,6 +6,8 @@ export type ElementRecord = {
   flavorText: string;
   discoveredAt: number;
   isStarter?: boolean;
+  discoveryFirstElement?: string;
+  discoverySecondElement?: string;
 };
 
 export type WorkbenchItem = {

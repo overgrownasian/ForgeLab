@@ -199,6 +199,7 @@ export function Game() {
   const [recipeBookStatus, setRecipeBookStatus] = useState<string | null>(null);
   const [recipeVisibilityFilter, setRecipeVisibilityFilter] = useState<RecipeVisibilityFilter>("all");
   const [recipeStarterFilter, setRecipeStarterFilter] = useState<string>("all");
+  const [revealedRecipeResults, setRevealedRecipeResults] = useState<string[]>([]);
 
   useEffect(() => {
     try {
@@ -597,6 +598,7 @@ export function Game() {
     setPendingPair(null);
     setSortMode("recent");
     setSearchQuery("");
+    setRevealedRecipeResults([]);
     setMessage("Back to the four primal elements.");
     window.localStorage.removeItem(STORAGE_KEY);
     setMobileMenuOpen(false);
@@ -616,6 +618,32 @@ export function Game() {
     setMobileMenuOpen(false);
     setRecipeBookStatus(null);
     setRecipeBookOpen(true);
+  }
+
+  function revealRecipeResult(elementName: string) {
+    setRevealedRecipeResults((current) => (current.includes(elementName) ? current : [...current, elementName]));
+    setRecipeBookStatus(`${elementName} revealed in the recipe book.`);
+  }
+
+  function replayDiscoveryCard(elementName: string, fallbackFirst: string, fallbackSecond: string) {
+    const discoveredElement = elements.find((entry) => entry.element === elementName);
+    if (!discoveredElement) {
+      return;
+    }
+
+    const firstElement = discoveredElement.discoveryFirstElement ?? fallbackFirst;
+    const secondElement = discoveredElement.discoverySecondElement ?? fallbackSecond;
+
+    setRecipeBookOpen(false);
+    setRecipeBookStatus(null);
+    setCelebration({
+      firstElement,
+      secondElement,
+      element: discoveredElement.element,
+      emoji: discoveredElement.emoji,
+      flavorText: discoveredElement.flavorText,
+      global: false
+    });
   }
 
   function beginDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
@@ -846,7 +874,9 @@ export function Game() {
             element: result.element,
             emoji: result.emoji,
             flavorText: result.flavorText,
-            discoveredAt: discoveryTime
+            discoveredAt: discoveryTime,
+            discoveryFirstElement: inputs.first,
+            discoverySecondElement: inputs.second
           }
         ])
       );
@@ -1439,38 +1469,66 @@ export function Game() {
                 const isFound = discoveredElements.has(entry.element);
                 const canAddFirst = discoveredElements.has(entry.first);
                 const canAddSecond = discoveredElements.has(entry.second);
+                const isRevealed = isFound || revealedRecipeResults.includes(entry.element);
+                const isFirstRevealed = canAddFirst || revealedRecipeResults.includes(entry.first);
+                const isSecondRevealed = canAddSecond || revealedRecipeResults.includes(entry.second);
 
                 return (
                   <div className="recipe-book-entry" key={`${entry.first}-${entry.second}-${entry.element}`}>
                     <div className="recipe-book-parts">
                       <button
-                        className={`recipe-book-token ${canAddFirst ? "clickable" : ""}`}
-                        disabled={!canAddFirst}
-                        onClick={() => addDiscoveredElementByName(entry.first, "recipe-ingredient")}
+                        className={`recipe-book-token ${canAddFirst || !isFirstRevealed ? "clickable" : ""}`}
+                        onClick={() =>
+                          canAddFirst ? addDiscoveredElementByName(entry.first, "recipe-ingredient") : revealRecipeResult(entry.first)
+                        }
                         type="button"
                       >
-                        {entry.first}
+                        {isFirstRevealed ? entry.first : "???"}
                       </button>
                       <span className="recipe-book-plus">+</span>
                       <button
-                        className={`recipe-book-token ${canAddSecond ? "clickable" : ""}`}
-                        disabled={!canAddSecond}
-                        onClick={() => addDiscoveredElementByName(entry.second, "recipe-ingredient")}
+                        className={`recipe-book-token ${canAddSecond || !isSecondRevealed ? "clickable" : ""}`}
+                        onClick={() =>
+                          canAddSecond
+                            ? addDiscoveredElementByName(entry.second, "recipe-ingredient")
+                            : revealRecipeResult(entry.second)
+                        }
                         type="button"
                       >
-                        {entry.second}
+                        {isSecondRevealed ? entry.second : "???"}
                       </button>
                     </div>
                     <div className="recipe-book-result">
-                      <button
-                        className={`recipe-book-token recipe-book-result-token ${isFound ? "clickable" : ""}`}
-                        disabled={!isFound}
-                        onClick={() => addDiscoveredElementByName(entry.element, "recipe-result")}
-                        type="button"
-                      >
-                        <span>{entry.emoji}</span>
-                        <span>{entry.element}</span>
-                      </button>
+                      <div className="recipe-book-result-stack">
+                        <button
+                          className={`recipe-book-token recipe-book-result-token ${
+                            isFound || !isRevealed ? "clickable" : ""
+                          }`}
+                          onClick={() =>
+                            isFound ? addDiscoveredElementByName(entry.element, "recipe-result") : revealRecipeResult(entry.element)
+                          }
+                          type="button"
+                        >
+                          {isRevealed ? (
+                            <>
+                              <span>{entry.emoji}</span>
+                              <span>{entry.element}</span>
+                            </>
+                          ) : (
+                            <span>???</span>
+                          )}
+                        </button>
+
+                        {isFound ? (
+                          <button
+                            className="recipe-book-inline-link"
+                            onClick={() => replayDiscoveryCard(entry.element, entry.first, entry.second)}
+                            type="button"
+                          >
+                            Show discovery card
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <span className={`recipe-book-status ${isFound ? "known" : ""}`}>
                       {isFound ? "Found" : "Hidden"}

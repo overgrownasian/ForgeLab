@@ -1191,6 +1191,12 @@ p {
   min-width: 0;
 }
 
+.recipe-book-result-stack {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
 .recipe-book-token {
   border: 0;
   padding: 0;
@@ -1216,6 +1222,23 @@ p {
   align-items: center;
   gap: 8px;
   font-weight: 700;
+}
+
+.recipe-book-inline-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.recipe-book-inline-link:hover,
+.recipe-book-inline-link:focus-visible {
+  color: var(--text);
 }
 
 .recipe-book-plus {
