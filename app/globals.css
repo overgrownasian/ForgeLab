@@ -569,6 +569,28 @@ p {
   user-select: none;
 }
 
+.workbench-recipe-link {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 2;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.workbench-recipe-link:hover,
+.workbench-recipe-link:focus-visible {
+  transform: translateX(-50%) translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
 .stat-card {
   padding: 12px 14px;
   border-radius: 16px;
@@ -1131,6 +1153,14 @@ p {
   padding: 8px 10px;
   background: color-mix(in srgb, var(--panel-strong) 72%, black 28%);
   color: var(--text);
+}
+
+.recipe-book-status-message {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+  font-size: 0.88rem;
 }
 
 .recipe-book-list {

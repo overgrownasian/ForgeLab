@@ -55,6 +55,14 @@ type ShareDataLike = {
   files?: File[];
 };
 
+const FORGING_STATUS_LINES = [
+  "Getting our mad scientist on...",
+  "Stirring the beaker with unnecessary confidence...",
+  "Consulting the ancient lab notebook...",
+  "Applying highly questionable genius...",
+  "Encouraging the atoms to make bad decisions..."
+];
+
 function createItemId() {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
@@ -125,6 +133,11 @@ function isThemeName(value: string): value is ThemeName {
   return THEMES.includes(value as ThemeName);
 }
 
+function getForgingStatusLine(first: string, second: string) {
+  const seed = `${first}:${second}`.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
+  return `${first} + ${second}... ${FORGING_STATUS_LINES[seed % FORGING_STATUS_LINES.length]}`;
+}
+
 export function Game() {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const trashRef = useRef<HTMLButtonElement | null>(null);
@@ -183,6 +196,7 @@ export function Game() {
   const [isSharing, setIsSharing] = useState(false);
   const [recipeBookOpen, setRecipeBookOpen] = useState(false);
   const [recipeSearchQuery, setRecipeSearchQuery] = useState("");
+  const [recipeBookStatus, setRecipeBookStatus] = useState<string | null>(null);
   const [recipeVisibilityFilter, setRecipeVisibilityFilter] = useState<RecipeVisibilityFilter>("all");
   const [recipeStarterFilter, setRecipeStarterFilter] = useState<string>("all");
 
@@ -532,7 +546,7 @@ export function Game() {
     setWorkbench((current) => [...current, createWorkbenchItem(element.element, element.emoji, x, y)]);
   }
 
-  function addDiscoveredElementByName(elementName: string) {
+  function addDiscoveredElementByName(elementName: string, source: "recipe-result" | "recipe-ingredient") {
     const discoveredElement =
       elements.find((entry) => entry.element === elementName) ??
       ALL_PREDEFINED_ELEMENTS.find((entry) => entry.element === elementName);
@@ -542,6 +556,12 @@ export function Game() {
     }
 
     addElementToWorkbench(discoveredElement);
+    const nextMessage =
+      source === "recipe-result"
+        ? `${discoveredElement.element} added to the workbench from the recipe result.`
+        : `${discoveredElement.element} added to the workbench from the recipe ingredients.`;
+    setRecipeBookStatus(nextMessage);
+    setMessage(nextMessage);
   }
 
   function clearWorkbench() {
@@ -594,6 +614,7 @@ export function Game() {
   function openRecipeBook() {
     setDesktopMenuOpen(false);
     setMobileMenuOpen(false);
+    setRecipeBookStatus(null);
     setRecipeBookOpen(true);
   }
 
@@ -913,7 +934,7 @@ export function Game() {
     ]);
 
     try {
-      setMessage(`Combining ${firstItem.element} + ${secondItem.element}...`);
+      setMessage(getForgingStatusLine(firstItem.element, secondItem.element));
       const result = await resolveCombination(firstItem.element, secondItem.element);
       const isPlayerNew = registerDiscovery(result, {
         first: firstItem.element,
@@ -1196,7 +1217,7 @@ export function Game() {
 
           <div className="status-bar">
             <span>{message}</span>
-            {pendingPair ? <span className="pending-indicator">Checking shared database...</span> : null}
+            {pendingPair ? <span className="pending-indicator">The lab is cooking...</span> : null}
           </div>
 
           <div className="workbench" ref={boardRef}>
@@ -1247,6 +1268,10 @@ export function Game() {
                 </div>
               </div>
             </div>
+
+            <button className="workbench-recipe-link desktop-only" onClick={openRecipeBook} type="button">
+              Open recipe book
+            </button>
 
             <button
               className="trash-zone"
@@ -1407,6 +1432,8 @@ export function Game() {
               </label>
             </div>
 
+            {recipeBookStatus ? <p className="recipe-book-status-message">{recipeBookStatus}</p> : null}
+
             <div className="recipe-book-list">
               {filteredRecipeBook.map((entry) => {
                 const isFound = discoveredElements.has(entry.element);
@@ -1419,7 +1446,7 @@ export function Game() {
                       <button
                         className={`recipe-book-token ${canAddFirst ? "clickable" : ""}`}
                         disabled={!canAddFirst}
-                        onClick={() => addDiscoveredElementByName(entry.first)}
+                        onClick={() => addDiscoveredElementByName(entry.first, "recipe-ingredient")}
                         type="button"
                       >
                         {entry.first}
@@ -1428,7 +1455,7 @@ export function Game() {
                       <button
                         className={`recipe-book-token ${canAddSecond ? "clickable" : ""}`}
                         disabled={!canAddSecond}
-                        onClick={() => addDiscoveredElementByName(entry.second)}
+                        onClick={() => addDiscoveredElementByName(entry.second, "recipe-ingredient")}
                         type="button"
                       >
                         {entry.second}
@@ -1438,7 +1465,7 @@ export function Game() {
                       <button
                         className={`recipe-book-token recipe-book-result-token ${isFound ? "clickable" : ""}`}
                         disabled={!isFound}
-                        onClick={() => addDiscoveredElementByName(entry.element)}
+                        onClick={() => addDiscoveredElementByName(entry.element, "recipe-result")}
                         type="button"
                       >
                         <span>{entry.emoji}</span>

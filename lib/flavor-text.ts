@@ -40,7 +40,24 @@ const OVERRIDES: Record<string, string> = {
   Robot: "Efficient, shiny, and already judging your cable management.",
   Dragon: "Excellent, a flying lizard with confidence and property concerns.",
   Internet: "You discovered the world's loudest library and least supervised argument.",
-  Time: "Bold choice; absolutely nobody handles this ingredient responsibly."
+  Time: "Bold choice; absolutely nobody handles this ingredient responsibly.",
+  Motion: "At last, things are happening on purpose, or at least with momentum.",
+  Force: "A surprisingly polite word for making the universe shove back.",
+  Mass: "Dense, stubborn, and now carrying the conversation by sheer presence.",
+  Acceleration: "Everything just got faster, which feels unsafe but scientifically valid.",
+  Momentum: "Speed met commitment and now neither of them can stop.",
+  Inertia: "A masterclass in continuing exactly as planned, whether helpful or not.",
+  Gravity: "The universe has started pulling rank, and everything else noticed.",
+  Orbit: "Falling sideways with confidence somehow still counts as elegance.",
+  Airplane: "You taught metal to dream of birds, and honestly it overachieved.",
+  Pilot: "Congratulations, someone now believes they can park in the sky.",
+  Airport: "A monument to schedules, luggage, and collective optimism about boarding.",
+  Flight: "All the drama of falling, rebranded as transportation.",
+  Shuttle: "A bus, but with fewer stops and much higher consequences.",
+  Terminal: "A surprisingly emotional place for snacks, gates, and hasty goodbyes.",
+  "Control Tower": "A very tall reminder that chaos prefers supervision.",
+  Wing: "Turns out flying works better when the air has something to argue with.",
+  Runway: "A long strip of confidence where gravity briefly loses the debate."
 };
 
 function hashText(value: string) {
