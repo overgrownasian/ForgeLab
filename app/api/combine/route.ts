@@ -12,6 +12,16 @@ type CombinationRow = {
   element: string;
   emoji: string;
   flavor_text: string | null;
+  created_at?: string;
+};
+
+type ReuseCandidate = {
+  id: string;
+  element: string;
+  emoji: string;
+  flavorText: string;
+  evidence: string;
+  score: number;
 };
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5-mini";
@@ -162,6 +172,155 @@ async function generateWithOpenAI(first: string, second: string) {
   };
 }
 
+function buildReuseCandidates(first: string, second: string, rows: CombinationRow[]) {
+  const candidateMap = new Map<string, ReuseCandidate>();
+
+  for (const row of rows) {
+    const sharesFirstIngredient = row.first_element === first || row.second_element === first;
+    const sharesSecondIngredient = row.first_element === second || row.second_element === second;
+
+    if (!sharesFirstIngredient && !sharesSecondIngredient) {
+      continue;
+    }
+
+    const candidateId = `${row.element}::${row.emoji}`;
+    const score = (sharesFirstIngredient ? 3 : 0) + (sharesSecondIngredient ? 3 : 0);
+    const evidence = `${row.first_element}+${row.second_element}=>${row.element}`;
+    const existing = candidateMap.get(candidateId);
+
+    if (!existing) {
+      candidateMap.set(candidateId, {
+        id: candidateId,
+        element: row.element,
+        emoji: getSingleEmoji(row.emoji),
+        flavorText: row.flavor_text ?? buildFlavorText(row.element),
+        evidence,
+        score
+      });
+      continue;
+    }
+
+    existing.score += score;
+    if (!existing.evidence.includes(evidence)) {
+      existing.evidence = `${existing.evidence} | ${evidence}`;
+    }
+  }
+
+  return Array.from(candidateMap.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30);
+}
+
+async function chooseFromRecentCandidates(
+  first: string,
+  second: string,
+  candidates: ReuseCandidate[]
+) {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return candidates[0] ?? null;
+  }
+
+  const enumChoices = ["NEW", ...candidates.map((candidate) => candidate.id)];
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are deciding whether a new alchemy combination should reuse a recent known element. Favor reusing an existing candidate when it is even somewhat plausible, so the world has convergent recipes and fewer unique outcomes. Choose NEW only when every candidate clearly feels unrelated. Return JSON only."
+            }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify({
+                combine: { first, second },
+                candidates: candidates.map((candidate) => ({
+                  id: candidate.id,
+                  element: candidate.element,
+                  emoji: candidate.emoji,
+                  evidence: candidate.evidence,
+                  score: candidate.score
+                }))
+              })
+            }
+          ]
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "reuse_choice",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              choice: {
+                type: "string",
+                enum: enumChoices
+              }
+            },
+            required: ["choice"]
+          }
+        }
+      }
+    })
+  });
+
+  if (!response.ok) {
+    return candidates[0] ?? null;
+  }
+
+  try {
+    const payload = (await response.json()) as {
+      output_text?: string;
+      output?: Array<{
+        content?: Array<{
+          type?: string;
+          text?: string;
+        }>;
+      }>;
+    };
+
+    const rawText =
+      payload.output_text ??
+      payload.output?.flatMap((entry) => entry.content ?? []).find((entry) => entry.text)?.text;
+
+    if (!rawText) {
+      return candidates[0] ?? null;
+    }
+
+    const parsed = JSON.parse(rawText) as { choice: string };
+    if (parsed.choice === "NEW") {
+      return null;
+    }
+
+    return candidates.find((candidate) => candidate.id === parsed.choice) ?? (candidates[0] ?? null);
+  } catch {
+    return candidates[0] ?? null;
+  }
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as Partial<CombinationRequest>;
   const first = normalizeElementName(body.first ?? "");
@@ -213,6 +372,49 @@ export async function POST(request: Request) {
 
     setCachedCombination(pairKey, result);
     return NextResponse.json(result);
+  }
+
+  const recent = await supabase
+    .from("alchemy_combinations")
+    .select("pair_key, first_element, second_element, element, emoji, flavor_text, created_at")
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (recent.error) {
+    return NextResponse.json({ error: recent.error.message }, { status: 500 });
+  }
+
+  const reuseCandidates = buildReuseCandidates(first, second, (recent.data as CombinationRow[]) ?? []);
+  const reused = await chooseFromRecentCandidates(first, second, reuseCandidates);
+
+  if (reused) {
+    const reusedInsert = await supabase
+      .from("alchemy_combinations")
+      .insert({
+        pair_key: pairKey,
+        first_element: first,
+        second_element: second,
+        element: reused.element,
+        emoji: reused.emoji,
+        flavor_text: reused.flavorText,
+        source: "reused_recent",
+        model: OPENAI_MODEL
+      })
+      .select("pair_key, first_element, second_element, element, emoji, flavor_text")
+      .maybeSingle();
+
+    if (!reusedInsert.error) {
+      const row = reusedInsert.data as CombinationRow | null;
+      const result = {
+        element: row?.element ?? reused.element,
+        emoji: getSingleEmoji(row?.emoji ?? reused.emoji),
+        flavorText: row?.flavor_text ?? reused.flavorText,
+        source: "database"
+      } satisfies RecipeResult;
+
+      setCachedCombination(pairKey, result);
+      return NextResponse.json(result);
+    }
   }
 
   try {
