@@ -39,6 +39,7 @@ type Celebration = {
   emoji: string;
   flavorText: string;
   global: boolean;
+  reopenRecipeBookOnClose?: boolean;
 };
 
 type ConfirmationState = {
@@ -642,7 +643,18 @@ export function Game() {
       element: discoveredElement.element,
       emoji: discoveredElement.emoji,
       flavorText: discoveredElement.flavorText,
-      global: false
+      global: false,
+      reopenRecipeBookOnClose: true
+    });
+  }
+
+  function dismissCelebration() {
+    setCelebration((current) => {
+      if (current?.reopenRecipeBookOnClose) {
+        setRecipeBookOpen(true);
+      }
+
+      return null;
     });
   }
 
@@ -1318,7 +1330,7 @@ export function Game() {
       </section>
 
       {celebration ? (
-        <div className="celebration-backdrop" onClick={() => setCelebration(null)} role="presentation">
+        <div className="celebration-backdrop" onClick={dismissCelebration} role="presentation">
           <div
             className={`celebration-card ${celebration.global ? "global" : ""}`}
             onClick={(event) => event.stopPropagation()}
@@ -1361,7 +1373,7 @@ export function Game() {
               <button className="primary-button" onClick={() => void shareDiscovery()} type="button">
                 {isSharing ? "Preparing..." : "Share"}
               </button>
-              <button className="ghost-button" onClick={() => setCelebration(null)} type="button">
+              <button className="ghost-button" onClick={dismissCelebration} type="button">
                 Continue
               </button>
             </div>
