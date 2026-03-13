@@ -27,9 +27,11 @@ npm install
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (optional, defaults to `gpt-5-mini`)
 
-3. In Supabase SQL editor, run [schema.sql](/C:/Users/bkushio/OneDrive%20-%20Granite%20School%20District/Documents/codex/supabase/schema.sql)
+3. In Supabase Auth, enable the `Google` provider and add your site URL plus redirect URL.
 
-4. Start the app:
+4. In Supabase SQL editor, run [schema.sql](/C:/Users/bkushio/OneDrive%20-%20Granite%20School%20District/Documents/codex/supabase/schema.sql)
+
+5. Start the app:
 
 ```bash
 npm run dev
@@ -59,6 +61,13 @@ Official references:
 - Drag one workbench item on top of another to combine them
 - Use `Clear workstation` to remove only the current board items
 - Use `Start over` to reset discoveries back to the four starters
+
+## Account sync
+
+- Guests still save progress locally on the current device
+- Signing in with Google saves a compact player profile with discovered element names, display name, theme, recipe reveals, achievements, and world-first count
+- Signed-in players can continue the same lab on multiple devices
+- Guests are limited to the default theme and cannot open the recipe book or create brand-new AI-generated combinations
 
 ## Architecture
 

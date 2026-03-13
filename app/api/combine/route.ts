@@ -387,6 +387,24 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   }
 
+  const authorizationHeader = request.headers.get("authorization");
+  const accessToken = authorizationHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: "Sign in with Google to create brand-new AI combinations." },
+      { status: 401 }
+    );
+  }
+
+  const userLookup = await supabase.auth.getUser(accessToken);
+  if (userLookup.error || !userLookup.data.user) {
+    return NextResponse.json(
+      { error: "Your session expired. Sign in again to create brand-new AI combinations." },
+      { status: 401 }
+    );
+  }
+
   try {
     const contextEntries = [
       ...collectPredefinedContext(first, second),
@@ -405,7 +423,7 @@ export async function POST(request: Request) {
         flavor_text: generated.flavorText,
         source: "openai",
         model: OPENAI_MODEL
-      })
+      } as never)
       .select("pair_key, first_element, second_element, element, emoji, flavor_text")
       .maybeSingle();
 

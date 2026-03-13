@@ -2,6 +2,13 @@
 
 import html2canvas from "html2canvas";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import {
+  ACHIEVEMENTS,
+  buildAchievementGalleryEntries,
+  getNewlyUnlockedAchievementIds
+} from "@/lib/achievements";
+import { getBrowserSupabaseClient } from "@/lib/browser-supabase";
 import { buildFlavorText } from "@/lib/flavor-text";
 import {
   ALL_PREDEFINED_ELEMENTS,
@@ -15,10 +22,12 @@ import type { ElementRecord, RecipeResult, SortMode, WorkbenchItem } from "@/lib
 const STORAGE_KEY = "alchemy-lab-state";
 const THEME_STORAGE_KEY = "alchemy-lab-theme";
 const ITEM_SIZE = 78;
+const CLOUD_SAVE_DEBOUNCE_MS = 900;
 
 const THEMES = ["default", "fantasy", "sci-fi", "xianxia", "radar", "matrix", "solar"] as const;
 
 type ThemeName = (typeof THEMES)[number];
+type BrowserSupabaseClient = ReturnType<typeof getBrowserSupabaseClient>;
 type RecipeVisibilityFilter = "all" | "found" | "hidden";
 
 type CachedCombination = {
@@ -30,6 +39,28 @@ type CachedCombination = {
 type DiscoveryState = {
   elements: ElementRecord[];
   cachedCombinations: Record<string, CachedCombination>;
+  achievements?: string[];
+  worldFirstDiscoveryCount?: number;
+};
+
+type PersistedPlayerState = {
+  discoveredElementNames: string[];
+  displayName: string;
+  theme: ThemeName;
+  revealedRecipeResults: string[];
+  achievements: string[];
+  worldFirstDiscoveryCount: number;
+};
+
+type PlayerStateRow = {
+  user_id: string;
+  discovered_elements: string[] | null;
+  display_name: string | null;
+  theme: string | null;
+  revealed_recipe_results: string[] | null;
+  achievements: string[] | null;
+  world_first_discovery_count: number | null;
+  updated_at?: string;
 };
 
 type Celebration = {
@@ -47,6 +78,16 @@ type ConfirmationState = {
   body: string;
   confirmLabel: string;
   action: "clear-workbench" | "start-over";
+};
+
+type AuthPromptState = {
+  title: string;
+  body: string;
+  actionLabel: string;
+};
+
+type AchievementModalState = {
+  newlyUnlockedIds: string[];
 };
 
 type ShareDataLike = {
@@ -93,13 +134,6 @@ function createProcessingItem(x = 120, y = 120): WorkbenchItem {
   };
 }
 
-function getInitialState(): DiscoveryState {
-  return {
-    elements: STARTING_ELEMENTS,
-    cachedCombinations: {}
-  };
-}
-
 function sortElements(elements: ElementRecord[], mode: SortMode) {
   return [...elements].sort((left, right) => {
     if (mode === "az") {
@@ -139,7 +173,62 @@ function getForgingStatusLine(first: string, second: string) {
   return `${first} + ${second}... ${FORGING_STATUS_LINES[seed % FORGING_STATUS_LINES.length]}`;
 }
 
+function getSessionFallbackDisplayName(session: Session | null) {
+  const metadataName = session?.user.user_metadata.full_name;
+  if (typeof metadataName === "string" && metadataName.trim()) {
+    return metadataName.trim().slice(0, 32);
+  }
+
+  const emailName = session?.user.email?.split("@")[0];
+  if (emailName) {
+    return emailName.slice(0, 32);
+  }
+
+  return "ForgeLab Alchemist";
+}
+
+function normalizeDisplayName(value: string, fallback: string) {
+  const trimmed = value.trim().replace(/\s+/g, " ").slice(0, 32);
+  return trimmed || fallback;
+}
+
+function buildDiscoveredElementNames(elements: ElementRecord[]) {
+  return normalizeElements(elements)
+    .sort((left, right) => left.discoveredAt - right.discoveredAt)
+    .map((entry) => entry.element);
+}
+
+function hydratePredefinedElement(elementName: string, discoveredAt: number): ElementRecord | null {
+  const knownElement = ALL_PREDEFINED_ELEMENTS.find((entry) => entry.element === elementName);
+  if (!knownElement) {
+    return null;
+  }
+
+  const recipe = PREDEFINED_RECIPE_BOOK.find((entry) => entry.element === elementName);
+
+  return {
+    element: knownElement.element,
+    emoji: knownElement.emoji,
+    flavorText: knownElement.flavorText,
+    discoveredAt,
+    isStarter: knownElement.isStarter,
+    discoveryFirstElement: recipe?.first,
+    discoverySecondElement: recipe?.second
+  };
+}
+
+function getPlayerStatesTable(client: BrowserSupabaseClient) {
+  return client.from("player_states");
+}
+
 export function Game() {
+  const supabase = useMemo(() => {
+    try {
+      return getBrowserSupabaseClient();
+    } catch {
+      return null;
+    }
+  }, []);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const trashRef = useRef<HTMLButtonElement | null>(null);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +264,25 @@ export function Game() {
     element: string;
     until: number;
   } | null>(null);
+  const isApplyingCloudStateRef = useRef(false);
+  const achievementNotificationsReadyRef = useRef(false);
+  const guestProgressRef = useRef<PersistedPlayerState>({
+    discoveredElementNames: buildDiscoveredElementNames(STARTING_ELEMENTS),
+    displayName: "ForgeLab Alchemist",
+    theme: "default",
+    revealedRecipeResults: [],
+    achievements: [],
+    worldFirstDiscoveryCount: 0
+  });
+  const latestPersistedStateRef = useRef<PersistedPlayerState>({
+    discoveredElementNames: buildDiscoveredElementNames(STARTING_ELEMENTS),
+    displayName: "ForgeLab Alchemist",
+    theme: "default",
+    revealedRecipeResults: [],
+    achievements: [],
+    worldFirstDiscoveryCount: 0
+  });
+  const lastCloudSnapshotRef = useRef<string | null>(null);
   const lastWorkbenchTapRef = useRef<{ id: string; time: number } | null>(null);
   const lastTrashTapRef = useRef<number>(0);
   const [ready, setReady] = useState(false);
@@ -190,12 +298,22 @@ export function Game() {
   const [message, setMessage] = useState<string>("Drag elements together to combine them.");
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [authPrompt, setAuthPrompt] = useState<AuthPromptState | null>(null);
+  const [achievementModal, setAchievementModal] = useState<AchievementModalState | null>(null);
   const [pendingPair, setPendingPair] = useState<string | null>(null);
   const [paletteGhost, setPaletteGhost] = useState<WorkbenchItem | null>(null);
   const [sharedElementCount, setSharedElementCount] = useState<number | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<string>("Guest mode on this device.");
+  const [displayName, setDisplayName] = useState("ForgeLab Alchemist");
+  const [achievements, setAchievements] = useState<string[]>([]);
+  const [worldFirstDiscoveryCount, setWorldFirstDiscoveryCount] = useState(0);
   const [recipeBookOpen, setRecipeBookOpen] = useState(false);
+  const [achievementGalleryOpen, setAchievementGalleryOpen] = useState(false);
   const [recipeSearchQuery, setRecipeSearchQuery] = useState("");
   const [recipeBookStatus, setRecipeBookStatus] = useState<string | null>(null);
   const [recipeVisibilityFilter, setRecipeVisibilityFilter] = useState<RecipeVisibilityFilter>("all");
@@ -229,6 +347,12 @@ export function Game() {
               ])
             )
           );
+        }
+        if (Array.isArray(parsed.achievements)) {
+          setAchievements(parsed.achievements.filter((entry): entry is string => typeof entry === "string"));
+        }
+        if (typeof parsed.worldFirstDiscoveryCount === "number") {
+          setWorldFirstDiscoveryCount(parsed.worldFirstDiscoveryCount);
         }
       }
     } catch {
@@ -271,11 +395,13 @@ export function Game() {
 
     const payload: DiscoveryState = {
       elements,
-      cachedCombinations
+      cachedCombinations,
+      achievements,
+      worldFirstDiscoveryCount
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [cachedCombinations, elements, ready]);
+  }, [achievements, cachedCombinations, elements, ready, worldFirstDiscoveryCount]);
 
   useEffect(() => {
     if (!ready) {
@@ -284,6 +410,76 @@ export function Game() {
 
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [ready, theme]);
+
+  useEffect(() => {
+    latestPersistedStateRef.current = {
+      discoveredElementNames: buildDiscoveredElementNames(elements),
+      displayName,
+      theme,
+      revealedRecipeResults,
+      achievements,
+      worldFirstDiscoveryCount
+    };
+  }, [achievements, displayName, elements, revealedRecipeResults, theme, worldFirstDiscoveryCount]);
+
+  useEffect(() => {
+    if (session?.user) {
+      return;
+    }
+
+    guestProgressRef.current = latestPersistedStateRef.current;
+  }, [session?.user, achievements, displayName, elements, revealedRecipeResults, theme, worldFirstDiscoveryCount]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!supabase) {
+      setAuthReady(true);
+      setCloudSyncStatus("Sign-in unavailable until Supabase is configured.");
+      return;
+    }
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) {
+        return;
+      }
+
+      setSession(data.session ?? null);
+      if (data.session?.user) {
+        setDisplayName(getSessionFallbackDisplayName(data.session));
+      }
+      setAuthReady(true);
+      if (error) {
+        setCloudSyncStatus(error.message);
+      } else if (data.session?.user) {
+        setCloudSyncStatus("Checking cloud save...");
+      }
+    });
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (nextSession?.user) {
+        setDisplayName(getSessionFallbackDisplayName(nextSession));
+      }
+      setAuthReady(true);
+      setAuthBusy(false);
+      setCloudSyncStatus(
+        nextSession?.user ? "Checking cloud save..." : "Guest mode on this device."
+      );
+      if (!nextSession?.user) {
+        setDisplayName("ForgeLab Alchemist");
+        setTheme("default");
+      }
+      lastCloudSnapshotRef.current = null;
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -306,6 +502,287 @@ export function Game() {
     window.addEventListener("pointerdown", onPointerDown);
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, [desktopMenuOpen]);
+
+  useEffect(() => {
+    achievementNotificationsReadyRef.current = false;
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!ready || !authReady) {
+      return;
+    }
+
+    const userId = session?.user.id;
+    if (!userId || !supabase) {
+      return;
+    }
+
+    const client = supabase;
+    let cancelled = false;
+
+    async function loadCloudState() {
+      setCloudSyncStatus("Syncing cloud save...");
+
+      const { data, error } = await getPlayerStatesTable(client)
+        .select("user_id, discovered_elements, display_name, theme, revealed_recipe_results, achievements, world_first_discovery_count, updated_at")
+        .eq("user_id", userId as string)
+        .maybeSingle();
+
+      if (cancelled) {
+        return;
+      }
+
+      if (error) {
+        setCloudSyncStatus(error.message);
+        return;
+      }
+
+      const guestProgress = guestProgressRef.current;
+
+      if (!data) {
+        try {
+          const currentState = {
+            ...guestProgress,
+            displayName: normalizeDisplayName(guestProgress.displayName, getSessionFallbackDisplayName(session))
+          };
+          const snapshot = JSON.stringify({
+            discoveredElementNames: currentState.discoveredElementNames,
+            displayName: currentState.displayName,
+            theme: currentState.theme,
+            revealedRecipeResults: currentState.revealedRecipeResults,
+            achievements: currentState.achievements,
+            worldFirstDiscoveryCount: currentState.worldFirstDiscoveryCount
+          });
+
+          await getPlayerStatesTable(client).upsert({
+            user_id: userId,
+            discovered_elements: currentState.discoveredElementNames,
+            display_name: currentState.displayName,
+            theme: currentState.theme,
+            revealed_recipe_results: currentState.revealedRecipeResults,
+            achievements: currentState.achievements,
+            world_first_discovery_count: currentState.worldFirstDiscoveryCount,
+            updated_at: new Date().toISOString()
+          } as never);
+
+          if (!cancelled) {
+            lastCloudSnapshotRef.current = snapshot;
+            setCloudSyncStatus("Cloud save created.");
+            setMessage("Signed in. Progress will now sync across devices.");
+          }
+        } catch {
+          if (!cancelled) {
+            setCloudSyncStatus("Cloud save unavailable.");
+          }
+        }
+
+        return;
+      }
+
+      const row = data as PlayerStateRow;
+      const cloudDiscoveredNames = Array.isArray(row.discovered_elements)
+        ? row.discovered_elements.filter((entry): entry is string => typeof entry === "string")
+        : buildDiscoveredElementNames(STARTING_ELEMENTS);
+      const cloudTheme = row.theme && isThemeName(row.theme) ? row.theme : latestPersistedStateRef.current.theme;
+      const cloudRevealedRecipeResults = Array.isArray(row.revealed_recipe_results)
+        ? row.revealed_recipe_results.filter((entry): entry is string => typeof entry === "string")
+        : [];
+      const cloudAchievements = Array.isArray(row.achievements)
+        ? row.achievements.filter((entry): entry is string => typeof entry === "string")
+        : [];
+      const cloudDisplayName = normalizeDisplayName(
+        row.display_name ?? "",
+        getSessionFallbackDisplayName(session)
+      );
+      const cloudWorldFirstDiscoveryCount =
+        typeof row.world_first_discovery_count === "number" ? row.world_first_discovery_count : 0;
+      const mergedDiscoveredNames = Array.from(
+        new Set([
+          ...buildDiscoveredElementNames(STARTING_ELEMENTS),
+          ...cloudDiscoveredNames,
+          ...guestProgress.discoveredElementNames
+        ])
+      );
+      const mergedRevealedRecipeResults = Array.from(
+        new Set([...cloudRevealedRecipeResults, ...guestProgress.revealedRecipeResults])
+      );
+      const mergedAchievements = Array.from(new Set([...cloudAchievements, ...guestProgress.achievements]));
+      const mergedWorldFirstDiscoveryCount =
+        cloudWorldFirstDiscoveryCount + guestProgress.worldFirstDiscoveryCount;
+      const uniqueDiscoveredNames = Array.from(
+        new Set(mergedDiscoveredNames)
+      );
+      const predefinedElements = uniqueDiscoveredNames
+        .map((elementName, index) => hydratePredefinedElement(elementName, index + 1))
+        .filter((entry): entry is ElementRecord => entry !== null);
+      const missingNames = uniqueDiscoveredNames.filter(
+        (elementName) => !predefinedElements.some((entry) => entry.element === elementName)
+      );
+      const combinationRows = missingNames.length
+        ? (
+            await client
+              .from("alchemy_combinations")
+              .select("first_element, second_element, element, emoji, flavor_text")
+              .in("element", missingNames as never)
+          ).data ?? []
+        : [];
+      const combinationMap = new Map(
+        (combinationRows as Array<{
+          first_element: string;
+          second_element: string;
+          element: string;
+          emoji: string;
+          flavor_text: string | null;
+        }>).map((entry) => [
+          entry.element,
+          {
+            emoji: entry.emoji,
+            flavorText: entry.flavor_text ?? buildFlavorText(entry.element),
+            discoveryFirstElement: entry.first_element,
+            discoverySecondElement: entry.second_element
+          }
+        ])
+      );
+      const cloudElements = normalizeElements(
+        uniqueDiscoveredNames.flatMap((elementName, index) => {
+          const predefinedElement = predefinedElements.find((entry) => entry.element === elementName);
+          if (predefinedElement) {
+            return [
+              {
+                ...predefinedElement,
+                discoveredAt: index + 1
+              }
+            ];
+          }
+
+          const generatedElement = combinationMap.get(elementName);
+          if (!generatedElement) {
+            return [];
+          }
+
+          return [
+            {
+              element: elementName,
+              emoji: generatedElement.emoji,
+              flavorText: generatedElement.flavorText,
+              discoveredAt: index + 1,
+              discoveryFirstElement: generatedElement.discoveryFirstElement,
+              discoverySecondElement: generatedElement.discoverySecondElement
+            } satisfies ElementRecord
+          ];
+        })
+      );
+
+      isApplyingCloudStateRef.current = true;
+      setElements(cloudElements);
+      setTheme(cloudTheme);
+      setRevealedRecipeResults(mergedRevealedRecipeResults);
+      setAchievements(mergedAchievements);
+      setDisplayName(cloudDisplayName);
+      setWorldFirstDiscoveryCount(mergedWorldFirstDiscoveryCount);
+      latestPersistedStateRef.current = {
+        discoveredElementNames: uniqueDiscoveredNames,
+        displayName: cloudDisplayName,
+        theme: cloudTheme,
+        revealedRecipeResults: mergedRevealedRecipeResults,
+        achievements: mergedAchievements,
+        worldFirstDiscoveryCount: mergedWorldFirstDiscoveryCount
+      };
+      const mergedSnapshot = JSON.stringify(latestPersistedStateRef.current);
+
+      const cloudSnapshot = JSON.stringify({
+        discoveredElementNames: Array.from(new Set([...buildDiscoveredElementNames(STARTING_ELEMENTS), ...cloudDiscoveredNames])),
+        displayName: cloudDisplayName,
+        theme: cloudTheme,
+        revealedRecipeResults: cloudRevealedRecipeResults,
+        achievements: cloudAchievements,
+        worldFirstDiscoveryCount: cloudWorldFirstDiscoveryCount
+      });
+
+      if (mergedSnapshot !== cloudSnapshot) {
+        const { error: mergeError } = await getPlayerStatesTable(client).upsert({
+          user_id: userId,
+          discovered_elements: uniqueDiscoveredNames,
+          display_name: cloudDisplayName,
+          theme: cloudTheme,
+          revealed_recipe_results: mergedRevealedRecipeResults,
+          achievements: mergedAchievements,
+          world_first_discovery_count: mergedWorldFirstDiscoveryCount,
+          updated_at: new Date().toISOString()
+        } as never);
+
+        if (mergeError && !cancelled) {
+          setCloudSyncStatus(mergeError.message);
+          return;
+        }
+      }
+
+      lastCloudSnapshotRef.current = mergedSnapshot;
+      setCloudSyncStatus("Cloud save loaded.");
+      setMessage(
+        guestProgress.worldFirstDiscoveryCount > 0 ||
+          guestProgress.achievements.length > 0 ||
+          guestProgress.discoveredElementNames.length > buildDiscoveredElementNames(STARTING_ELEMENTS).length
+          ? "Cloud save loaded. Guest progress merged into your account."
+          : "Cloud save loaded."
+      );
+
+      window.setTimeout(() => {
+        isApplyingCloudStateRef.current = false;
+      }, 0);
+    }
+
+    void loadCloudState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, ready, session, session?.user.id, supabase]);
+
+  useEffect(() => {
+    if (!ready || !authReady || !session?.user.id || !supabase || isApplyingCloudStateRef.current) {
+      return;
+    }
+
+    const payload = latestPersistedStateRef.current;
+    const snapshot = JSON.stringify(payload);
+
+    if (lastCloudSnapshotRef.current === snapshot) {
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      const currentPayload = latestPersistedStateRef.current;
+      const currentSnapshot = JSON.stringify(currentPayload);
+
+      if (lastCloudSnapshotRef.current === currentSnapshot) {
+        return;
+      }
+
+      setCloudSyncStatus("Saving to cloud...");
+
+      const { error } = await getPlayerStatesTable(supabase).upsert({
+        user_id: session.user.id,
+        discovered_elements: currentPayload.discoveredElementNames,
+        display_name: currentPayload.displayName,
+        theme: currentPayload.theme,
+        revealed_recipe_results: currentPayload.revealedRecipeResults,
+        achievements: currentPayload.achievements,
+        world_first_discovery_count: currentPayload.worldFirstDiscoveryCount,
+        updated_at: new Date().toISOString()
+      } as never);
+
+      if (error) {
+        setCloudSyncStatus(error.message);
+        return;
+      }
+
+      lastCloudSnapshotRef.current = currentSnapshot;
+      setCloudSyncStatus("Cloud synced.");
+    }, CLOUD_SAVE_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [authReady, ready, session?.user.id, supabase, elements, cachedCombinations, theme, revealedRecipeResults]);
 
   useEffect(() => {
     function onPointerMove(event: PointerEvent) {
@@ -495,7 +972,9 @@ export function Game() {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
     };
-  }, [paletteGhost, workbench]);
+  // This listener intentionally tracks the live drag state rather than every helper function dependency.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paletteGhost, workbench, elements]);
 
   const sortedElements = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -538,7 +1017,73 @@ export function Game() {
     });
   }, [discoveredElements, recipeSearchQuery, recipeStarterFilter, recipeVisibilityFilter]);
 
+  const achievementState = useMemo(
+    () => ({
+      discoveredCount: elements.length,
+      worldFirstCount: worldFirstDiscoveryCount,
+      revealedRecipeCount: revealedRecipeResults.length,
+      isSignedIn: Boolean(session?.user),
+      hasCustomTheme: theme !== "default"
+    }),
+    [elements.length, revealedRecipeResults.length, session?.user, theme, worldFirstDiscoveryCount]
+  );
+
+  const newlyUnlockedAchievementIds = useMemo(
+    () => getNewlyUnlockedAchievementIds(achievementState, achievements),
+    [achievementState, achievements]
+  );
+
+  const achievementGalleryEntries = useMemo(
+    () => buildAchievementGalleryEntries(achievementState, achievements),
+    [achievementState, achievements]
+  );
+  const unlockedAchievementEntries = useMemo(
+    () => achievementGalleryEntries.filter((entry) => entry.unlocked),
+    [achievementGalleryEntries]
+  );
+
   const knownRecipePool = ALL_PREDEFINED_ELEMENTS.length + (sharedElementCount ?? 0);
+  const unlockedAchievementCount = unlockedAchievementEntries.length;
+
+  useEffect(() => {
+    if (newlyUnlockedAchievementIds.length === 0) {
+      return;
+    }
+
+    setAchievements((current) => Array.from(new Set([...current, ...newlyUnlockedAchievementIds])));
+    if (!achievementNotificationsReadyRef.current) {
+      return;
+    }
+
+    setAchievementModal((current) => ({
+      newlyUnlockedIds: Array.from(new Set([...(current?.newlyUnlockedIds ?? []), ...newlyUnlockedAchievementIds]))
+    }));
+
+    const firstAchievement = ACHIEVEMENTS.find((achievement) => achievement.id === newlyUnlockedAchievementIds[0]);
+    setMessage(
+      firstAchievement
+        ? `Achievement unlocked: ${firstAchievement.title}.`
+        : `${newlyUnlockedAchievementIds.length} achievement${
+            newlyUnlockedAchievementIds.length === 1 ? "" : "s"
+          } unlocked.`
+    );
+  }, [newlyUnlockedAchievementIds]);
+
+  useEffect(() => {
+    if (!ready || !authReady) {
+      return;
+    }
+
+    if (session?.user && cloudSyncStatus === "Checking cloud save...") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      achievementNotificationsReadyRef.current = true;
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [authReady, cloudSyncStatus, ready, session?.user]);
 
   function addElementToWorkbench(element: ElementRecord) {
     const bounds = boardRef.current?.getBoundingClientRect();
@@ -609,16 +1154,112 @@ export function Game() {
     setFocusPanel((current) => (current === panel ? "split" : panel));
   }
 
+  function requireSignedIn(feature: "recipe-book" | "themes" | "ai-combos" | "achievements") {
+    if (session?.user) {
+      return true;
+    }
+
+    const prompt =
+      feature === "recipe-book"
+        ? {
+            title: "Unlock the recipe book",
+            body: "Sign in with Google to browse recipes, replay discoveries, and carry your progress across devices.",
+            actionLabel: "Sign in to open it"
+          }
+        : feature === "achievements"
+          ? {
+              title: "Unlock the achievement gallery",
+              body: "Sign in with Google to collect achievements, admire your trophy wall, and keep those hard-earned bragging rights.",
+              actionLabel: "Sign in to claim it"
+            }
+        : feature === "themes"
+          ? {
+              title: "Unlock custom themes",
+              body: "Sign in with Google to switch beyond the default theme and keep your lab style synced everywhere.",
+              actionLabel: "Sign in to customize"
+            }
+          : {
+              title: "Unlock new AI discoveries",
+              body: "Sign in with Google before forging brand-new AI combinations so your world-firsts and progress can be saved.",
+              actionLabel: "Sign in to discover"
+            };
+
+    setAuthPrompt(prompt);
+    return false;
+  }
+
+  async function signInWithGoogle() {
+    if (!supabase) {
+      setCloudSyncStatus("Supabase auth is not configured yet.");
+      return;
+    }
+
+    setAuthBusy(true);
+    setCloudSyncStatus("Redirecting to Google...");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      setAuthBusy(false);
+      setCloudSyncStatus(error.message);
+    }
+  }
+
+  async function signOut() {
+    if (!supabase) {
+      setCloudSyncStatus("Supabase auth is not configured yet.");
+      return;
+    }
+
+    setAuthBusy(true);
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+
+    if (error) {
+      setAuthBusy(false);
+      setCloudSyncStatus(error.message);
+      return;
+    }
+
+    setTheme("default");
+    setWorldFirstDiscoveryCount(0);
+    setAchievementGalleryOpen(false);
+    setAchievementModal(null);
+    setCloudSyncStatus("Signed out. Guest mode on this device.");
+  }
+
   function handleThemeChange(nextTheme: ThemeName) {
+    if (nextTheme !== "default" && !requireSignedIn("themes")) {
+      return;
+    }
+
     setTheme(nextTheme);
     setMessage(`${nextTheme.charAt(0).toUpperCase()}${nextTheme.slice(1)} theme activated.`);
   }
 
   function openRecipeBook() {
+    if (!requireSignedIn("recipe-book")) {
+      return;
+    }
+
     setDesktopMenuOpen(false);
     setMobileMenuOpen(false);
     setRecipeBookStatus(null);
     setRecipeBookOpen(true);
+  }
+
+  function openAchievementGallery() {
+    if (!requireSignedIn("achievements")) {
+      return;
+    }
+
+    setDesktopMenuOpen(false);
+    setMobileMenuOpen(false);
+    setAchievementGalleryOpen(true);
   }
 
   function revealRecipeResult(elementName: string) {
@@ -904,6 +1545,7 @@ export function Game() {
 
       if (result.isNewDiscovery) {
         setSharedElementCount((current) => (typeof current === "number" ? current + 1 : current));
+        setWorldFirstDiscoveryCount((current) => current + 1);
       }
 
       setShareStatus(null);
@@ -932,7 +1574,8 @@ export function Game() {
     const response = await fetch("/api/combine", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
       },
       body: JSON.stringify({ first, second })
     });
@@ -940,9 +1583,9 @@ export function Game() {
     const payload = (await response.json()) as RecipeResult | { error: string };
     setPendingPair(null);
 
-    if (!response.ok || "error" in payload) {
-      throw new Error("error" in payload ? payload.error : "Unknown combination failure.");
-    }
+      if (!response.ok || "error" in payload) {
+        throw new Error("error" in payload ? payload.error : "Unknown combination failure.");
+      }
 
     setCachedCombinations((current) => ({
       ...current,
@@ -1001,6 +1644,9 @@ export function Game() {
           : `${firstItem.element} + ${secondItem.element} = ${result.element}`
       );
     } catch (error) {
+      if (error instanceof Error && /sign in with google|session expired/i.test(error.message)) {
+        requireSignedIn("ai-combos");
+      }
       setWorkbench((current) => [
         ...current.filter((item) => item.id !== processingItem.id),
         createWorkbenchItem(firstItem.element, firstItem.emoji, firstItem.x, firstItem.y),
@@ -1034,8 +1680,45 @@ export function Game() {
           </div>
 
           <div className="mobile-menu-grid">
+            <div className="auth-panel">
+              <div className="auth-panel-copy">
+                <p className="celebration-label">Cloud save</p>
+                <strong>{session?.user ? displayName : "Google sign-in"}</strong>
+                <span>
+                  {session?.user
+                    ? "Your discoveries sync across devices when you are signed in."
+                    : "Sign in with Google to carry your discoveries across devices."}
+                </span>
+              </div>
+              {session?.user ? (
+                <label className="profile-field">
+                  <span>Display name</span>
+                  <input
+                    onBlur={() => setDisplayName((current) => normalizeDisplayName(current, getSessionFallbackDisplayName(session)))}
+                    onChange={(event) => setDisplayName(event.target.value.slice(0, 32))}
+                    placeholder="Display name"
+                    type="text"
+                    value={displayName}
+                  />
+                </label>
+              ) : null}
+              <span className="auth-sync-status">{cloudSyncStatus}</span>
+              <button
+                className={session?.user ? "ghost-button" : "primary-button"}
+                onClick={() => void (session?.user ? signOut() : signInWithGoogle())}
+                type="button"
+                disabled={authBusy}
+              >
+                {authBusy ? "Working..." : session?.user ? "Sign out" : "Sign in with Google"}
+              </button>
+            </div>
+
             <button className="menu-link-button" onClick={openRecipeBook} type="button">
               Recipe book
+            </button>
+
+            <button className="menu-link-button" onClick={openAchievementGallery} type="button">
+              Achievement gallery
             </button>
 
             <label className="sort-select">
@@ -1061,16 +1744,26 @@ export function Game() {
               </select>
             </label>
 
-            <div className="stats-grid mobile-stats">
-              <div className="stat-card">
-                <span className="stat-label">Discovered</span>
-                <strong>{elements.length}</strong>
-              </div>
+            <div className={`stats-grid mobile-stats ${session?.user ? "" : "guest"}`}>
               <div className="stat-card">
                 <span className="stat-label">Known recipe pool</span>
                 <strong>{knownRecipePool}</strong>
               </div>
+              <div className="stat-card">
+                <span className="stat-label">Discovered</span>
+                <strong>{elements.length}</strong>
+              </div>
+              {session?.user ? (
+                <div className="stat-card">
+                  <span className="stat-label">World&apos;s firsts</span>
+                  <strong>{worldFirstDiscoveryCount}</strong>
+                </div>
+              ) : null}
             </div>
+
+            <p className="menu-summary-copy">
+              {unlockedAchievementCount} of {ACHIEVEMENTS.length} achievements unlocked
+            </p>
 
             <div className="mobile-action-grid">
               <button className="ghost-button" onClick={clearWorkbench} type="button">
@@ -1134,8 +1827,43 @@ export function Game() {
 
           {desktopMenuOpen ? (
             <div className="desktop-menu-panel" ref={desktopMenuRef}>
+              <div className="auth-panel">
+                <div className="auth-panel-copy">
+                  <p className="celebration-label">Cloud save</p>
+                  <strong>{session?.user ? displayName : "Google sign-in"}</strong>
+                  <span>
+                    {session?.user
+                      ? "This lab will stay in sync across your devices."
+                      : "Sign in with Google to sync your discoveries across devices."}
+                  </span>
+                </div>
+                {session?.user ? (
+                  <label className="profile-field">
+                    <span>Display name</span>
+                    <input
+                      onBlur={() => setDisplayName((current) => normalizeDisplayName(current, getSessionFallbackDisplayName(session)))}
+                      onChange={(event) => setDisplayName(event.target.value.slice(0, 32))}
+                      placeholder="Display name"
+                      type="text"
+                      value={displayName}
+                    />
+                  </label>
+                ) : null}
+                <span className="auth-sync-status">{cloudSyncStatus}</span>
+                <button
+                  className={session?.user ? "ghost-button" : "primary-button"}
+                  onClick={() => void (session?.user ? signOut() : signInWithGoogle())}
+                  type="button"
+                  disabled={authBusy}
+                >
+                  {authBusy ? "Working..." : session?.user ? "Sign out" : "Sign in with Google"}
+                </button>
+              </div>
               <button className="menu-link-button" onClick={openRecipeBook} type="button">
                 Recipe book
+              </button>
+              <button className="menu-link-button" onClick={openAchievementGallery} type="button">
+                Achievement gallery
               </button>
               <p className="desktop-menu-note">Theme and sort controls now live in the panel for quicker access.</p>
             </div>
@@ -1299,21 +2027,29 @@ export function Game() {
             ) : null}
 
             <div className="stats-overlay desktop-only">
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span className="stat-label">Discovered</span>
-                  <strong>{elements.length}</strong>
-                </div>
+              <div className={`stats-grid ${session?.user ? "" : "guest"}`}>
                 <div className="stat-card">
                   <span className="stat-label">Known recipe pool</span>
                   <strong>{knownRecipePool}</strong>
                 </div>
+                <div className="stat-card">
+                  <span className="stat-label">Discovered</span>
+                  <strong>{elements.length}</strong>
+                </div>
+                {session?.user ? (
+                  <div className="stat-card">
+                    <span className="stat-label">World&apos;s firsts</span>
+                    <strong>{worldFirstDiscoveryCount}</strong>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            <button className="workbench-recipe-link desktop-only" onClick={openRecipeBook} type="button">
-              Open recipe book
-            </button>
+            {session?.user ? (
+              <button className="workbench-recipe-link desktop-only" onClick={openRecipeBook} type="button">
+                📖
+              </button>
+            ) : null}
 
             <button
               className="trash-zone"
@@ -1400,6 +2136,94 @@ export function Game() {
                 type="button"
               >
                 {confirmation.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {authPrompt ? (
+        <div className="confirmation-backdrop" onClick={() => setAuthPrompt(null)} role="presentation">
+          <div
+            className="confirmation-card auth-prompt-card"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-prompt-title"
+          >
+            <p className="celebration-label">Members only</p>
+            <h3 id="auth-prompt-title">{authPrompt.title}</h3>
+            <p>{authPrompt.body}</p>
+            <div className="confirmation-actions">
+              <button className="ghost-button" onClick={() => setAuthPrompt(null)} type="button">
+                Maybe later
+              </button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setAuthPrompt(null);
+                  void signInWithGoogle();
+                }}
+                type="button"
+                disabled={authBusy}
+              >
+                {authBusy ? "Working..." : authPrompt.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {achievementModal ? (
+        <div className="confirmation-backdrop" onClick={() => setAchievementModal(null)} role="presentation">
+          <div
+            className="confirmation-card achievement-toast-card"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="achievement-toast-title"
+          >
+            <p className="celebration-label">Achievement unlocked</p>
+            <h3 id="achievement-toast-title">
+              {achievementModal.newlyUnlockedIds.length > 1
+                ? `${achievementModal.newlyUnlockedIds.length} fresh trophies`
+                : achievementGalleryEntries.find(
+                    (entry) => entry.id === achievementModal.newlyUnlockedIds[0]
+                  )?.title ?? "New achievement"}
+            </h3>
+            <div className="achievement-toast-list">
+              {achievementModal.newlyUnlockedIds.map((id) => {
+                const achievement = achievementGalleryEntries.find((entry) => entry.id === id);
+                if (!achievement) {
+                  return null;
+                }
+
+                return (
+                  <div className="achievement-toast-item" key={achievement.id}>
+                    <span className="achievement-badge" aria-hidden="true">
+                      {achievement.emoji}
+                    </span>
+                    <div className="achievement-copy">
+                      <strong>{achievement.title}</strong>
+                      <p>{achievement.flavorText}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="confirmation-actions">
+              <button className="ghost-button" onClick={() => setAchievementModal(null)} type="button">
+                Keep forging
+              </button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setAchievementModal(null);
+                  setAchievementGalleryOpen(true);
+                }}
+                type="button"
+              >
+                Open gallery
               </button>
             </div>
           </div>
@@ -1548,6 +2372,89 @@ export function Game() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {achievementGalleryOpen ? (
+        <div className="recipe-book-backdrop" onClick={() => setAchievementGalleryOpen(false)} role="presentation">
+          <div
+            className="achievement-gallery-card"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="achievement-gallery-title"
+          >
+            <div className="recipe-book-header">
+              <div>
+                <p className="celebration-label">Hall of glory</p>
+                <h3 id="achievement-gallery-title">Achievement gallery</h3>
+              </div>
+              <button className="ghost-button" onClick={() => setAchievementGalleryOpen(false)} type="button">
+                Close
+              </button>
+            </div>
+
+            <div className="achievement-gallery-summary">
+              <div className="stat-card">
+                <span className="stat-label">Unlocked</span>
+                <strong>
+                  {unlockedAchievementCount}/{ACHIEVEMENTS.length}
+                </strong>
+              </div>
+              <p>
+                ForgeLab keeps your earned achievements, even if you later reset the lab and pretend none of this
+                happened.
+              </p>
+            </div>
+
+            <div className="achievement-gallery-list">
+              {unlockedAchievementEntries.length === 0 ? (
+                <div className="achievement-empty-state">
+                  <p className="celebration-label">Nothing on the wall yet</p>
+                  <h4>Your trophy room is still suspiciously tidy.</h4>
+                  <p>Keep experimenting. The gallery only shows achievements once you actually earn them.</p>
+                </div>
+              ) : null}
+
+              {unlockedAchievementEntries.map((achievement) => (
+                <article
+                  className="achievement-card unlocked"
+                  key={achievement.id}
+                >
+                  <div className="achievement-card-top">
+                    <span className="achievement-badge" aria-hidden="true">
+                      {achievement.emoji}
+                    </span>
+                    <span className="achievement-status unlocked">Unlocked</span>
+                  </div>
+                  <div className="achievement-copy">
+                    <h4>{achievement.title}</h4>
+                    <p className="achievement-requirement">{achievement.requirement}</p>
+                    <p>{achievement.flavorText}</p>
+                  </div>
+                  <div className="achievement-progress">
+                    <span>{achievement.progressLabel}</span>
+                    <div className="achievement-progress-track" aria-hidden="true">
+                      <span
+                        className="achievement-progress-fill"
+                        style={{
+                          width:
+                            achievement.progressValue === 0
+                              ? "0%"
+                              : `${Math.max(
+                                  8,
+                                  Math.round(
+                                    (achievement.progressValue / achievement.progressTarget) * 100
+                                  )
+                                )}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </div>
