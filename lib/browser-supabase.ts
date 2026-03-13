@@ -1,17 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase-database";
 
-let browserClient: ReturnType<typeof createClient<Database>> | null = null;
+export type BrowserSupabaseConfig = {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+};
 
-export function getBrowserSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let browserClient: ReturnType<typeof createClient<Database>> | null = null;
+let browserClientKey: string | null = null;
+
+export function createBrowserSupabaseClient(config: BrowserSupabaseConfig) {
+  const { supabaseUrl, supabaseAnonKey } = config;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing Supabase environment variables.");
   }
 
-  if (!browserClient) {
+  const cacheKey = `${supabaseUrl}::${supabaseAnonKey}`;
+
+  if (!browserClient || browserClientKey !== cacheKey) {
     browserClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
@@ -19,6 +26,7 @@ export function getBrowserSupabaseClient() {
         detectSessionInUrl: true
       }
     });
+    browserClientKey = cacheKey;
   }
 
   return browserClient;

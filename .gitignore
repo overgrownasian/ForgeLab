@@ -4,3 +4,5 @@ build
 node_modules
 .env.local
 tsconfig.tsbuildinfo
+*.tar
+*.tar.gz

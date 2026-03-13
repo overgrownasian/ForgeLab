@@ -527,13 +527,8 @@ p {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
-  gap: 10px;
-  min-width: min(100%, 390px);
-}
-
-.stats-grid.guest {
   grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 10px;
   min-width: min(100%, 260px);
 }
 
@@ -574,10 +569,10 @@ p {
   user-select: none;
 }
 
+.workbench-achievement-link,
 .workbench-recipe-link {
   position: absolute;
   left: 12px;
-  bottom: 76px;
   z-index: 2;
   display: grid;
   place-items: center;
@@ -593,6 +588,16 @@ p {
   transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 
+.workbench-achievement-link {
+  bottom: 140px;
+}
+
+.workbench-recipe-link {
+  bottom: 76px;
+}
+
+.workbench-achievement-link:hover,
+.workbench-achievement-link:focus-visible,
 .workbench-recipe-link:hover,
 .workbench-recipe-link:focus-visible {
   transform: translateY(-1px);
@@ -714,6 +719,48 @@ p {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.16);
+}
+
+.audio-controls-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.audio-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.audio-toggle-row,
+.audio-slider-row {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.audio-toggle-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.audio-toggle-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.audio-slider-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .auth-panel {
@@ -1425,6 +1472,21 @@ p {
   display: grid;
   gap: 6px;
   justify-items: start;
+}
+
+.recipe-book-source-badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.recipe-book-source-badge.discovered {
+  background: rgba(255, 179, 71, 0.14);
+  color: var(--accent);
 }
 
 .recipe-book-token {

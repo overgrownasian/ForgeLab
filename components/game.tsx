@@ -8,7 +8,10 @@ import {
   buildAchievementGalleryEntries,
   getNewlyUnlockedAchievementIds
 } from "@/lib/achievements";
-import { getBrowserSupabaseClient } from "@/lib/browser-supabase";
+import {
+  createBrowserSupabaseClient,
+  type BrowserSupabaseConfig
+} from "@/lib/browser-supabase";
 import { buildFlavorText } from "@/lib/flavor-text";
 import {
   ALL_PREDEFINED_ELEMENTS,
@@ -21,14 +24,16 @@ import type { ElementRecord, RecipeResult, SortMode, WorkbenchItem } from "@/lib
 
 const STORAGE_KEY = "alchemy-lab-state";
 const THEME_STORAGE_KEY = "alchemy-lab-theme";
+const AUDIO_SETTINGS_STORAGE_KEY = "alchemy-lab-audio";
 const ITEM_SIZE = 78;
 const CLOUD_SAVE_DEBOUNCE_MS = 900;
 
 const THEMES = ["default", "fantasy", "sci-fi", "xianxia", "radar", "matrix", "solar"] as const;
 
 type ThemeName = (typeof THEMES)[number];
-type BrowserSupabaseClient = ReturnType<typeof getBrowserSupabaseClient>;
+type BrowserSupabaseClient = ReturnType<typeof createBrowserSupabaseClient>;
 type RecipeVisibilityFilter = "all" | "found" | "hidden";
+type RecipeSourceFilter = "all" | "predefined" | "discovered";
 
 type CachedCombination = {
   element: string;
@@ -39,8 +44,6 @@ type CachedCombination = {
 type DiscoveryState = {
   elements: ElementRecord[];
   cachedCombinations: Record<string, CachedCombination>;
-  achievements?: string[];
-  worldFirstDiscoveryCount?: number;
 };
 
 type PersistedPlayerState = {
@@ -49,7 +52,6 @@ type PersistedPlayerState = {
   theme: ThemeName;
   revealedRecipeResults: string[];
   achievements: string[];
-  worldFirstDiscoveryCount: number;
 };
 
 type PlayerStateRow = {
@@ -59,7 +61,6 @@ type PlayerStateRow = {
   theme: string | null;
   revealed_recipe_results: string[] | null;
   achievements: string[] | null;
-  world_first_discovery_count: number | null;
   updated_at?: string;
 };
 
@@ -95,6 +96,23 @@ type ShareDataLike = {
   text?: string;
   url?: string;
   files?: File[];
+};
+
+type RecipeBookEntry = {
+  first: string;
+  second: string;
+  emoji: string;
+  element: string;
+  source: "predefined" | "discovered";
+};
+
+type SoundEffect = "plop" | "pop" | "discovery";
+
+type AudioSettings = {
+  musicEnabled: boolean;
+  musicVolume: number;
+  sfxEnabled: boolean;
+  sfxVolume: number;
 };
 
 const FORGING_STATUS_LINES = [
@@ -222,18 +240,15 @@ function getPlayerStatesTable(client: BrowserSupabaseClient) {
 }
 
 export function Game() {
-  const supabase = useMemo(() => {
-    try {
-      return getBrowserSupabaseClient();
-    } catch {
-      return null;
-    }
-  }, []);
+  const [supabase, setSupabase] = useState<BrowserSupabaseClient | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const trashRef = useRef<HTMLButtonElement | null>(null);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const desktopMenuRef = useRef<HTMLDivElement | null>(null);
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const soundRefs = useRef<Partial<Record<SoundEffect, HTMLAudioElement>>>({});
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
   const dragRef = useRef<{
     id: string;
     offsetX: number;
@@ -271,16 +286,14 @@ export function Game() {
     displayName: "ForgeLab Alchemist",
     theme: "default",
     revealedRecipeResults: [],
-    achievements: [],
-    worldFirstDiscoveryCount: 0
+    achievements: []
   });
   const latestPersistedStateRef = useRef<PersistedPlayerState>({
     discoveredElementNames: buildDiscoveredElementNames(STARTING_ELEMENTS),
     displayName: "ForgeLab Alchemist",
     theme: "default",
     revealedRecipeResults: [],
-    achievements: [],
-    worldFirstDiscoveryCount: 0
+    achievements: []
   });
   const lastCloudSnapshotRef = useRef<string | null>(null);
   const lastWorkbenchTapRef = useRef<{ id: string; time: number } | null>(null);
@@ -306,19 +319,24 @@ export function Game() {
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [supabaseConfigReady, setSupabaseConfigReady] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<string>("Guest mode on this device.");
   const [displayName, setDisplayName] = useState("ForgeLab Alchemist");
   const [achievements, setAchievements] = useState<string[]>([]);
-  const [worldFirstDiscoveryCount, setWorldFirstDiscoveryCount] = useState(0);
   const [recipeBookOpen, setRecipeBookOpen] = useState(false);
   const [achievementGalleryOpen, setAchievementGalleryOpen] = useState(false);
   const [recipeSearchQuery, setRecipeSearchQuery] = useState("");
   const [recipeBookStatus, setRecipeBookStatus] = useState<string | null>(null);
   const [recipeVisibilityFilter, setRecipeVisibilityFilter] = useState<RecipeVisibilityFilter>("all");
+  const [recipeSourceFilter, setRecipeSourceFilter] = useState<RecipeSourceFilter>("all");
   const [recipeStarterFilter, setRecipeStarterFilter] = useState<string>("all");
   const [revealedRecipeResults, setRevealedRecipeResults] = useState<string[]>([]);
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [musicVolume, setMusicVolume] = useState(0.35);
+  const [sfxEnabled, setSfxEnabled] = useState(true);
+  const [sfxVolume, setSfxVolume] = useState(0.7);
 
   useEffect(() => {
     try {
@@ -348,12 +366,6 @@ export function Game() {
             )
           );
         }
-        if (Array.isArray(parsed.achievements)) {
-          setAchievements(parsed.achievements.filter((entry): entry is string => typeof entry === "string"));
-        }
-        if (typeof parsed.worldFirstDiscoveryCount === "number") {
-          setWorldFirstDiscoveryCount(parsed.worldFirstDiscoveryCount);
-        }
       }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -366,6 +378,31 @@ export function Game() {
     const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (savedTheme && isThemeName(savedTheme)) {
       setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedAudio = window.localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
+      if (!savedAudio) {
+        return;
+      }
+
+      const parsed = JSON.parse(savedAudio) as Partial<AudioSettings>;
+      if (typeof parsed.musicEnabled === "boolean") {
+        setMusicEnabled(parsed.musicEnabled);
+      }
+      if (typeof parsed.musicVolume === "number") {
+        setMusicVolume(Math.max(0, Math.min(1, parsed.musicVolume)));
+      }
+      if (typeof parsed.sfxEnabled === "boolean") {
+        setSfxEnabled(parsed.sfxEnabled);
+      }
+      if (typeof parsed.sfxVolume === "number") {
+        setSfxVolume(Math.max(0, Math.min(1, parsed.sfxVolume)));
+      }
+    } catch {
+      window.localStorage.removeItem(AUDIO_SETTINGS_STORAGE_KEY);
     }
   }, []);
 
@@ -395,13 +432,11 @@ export function Game() {
 
     const payload: DiscoveryState = {
       elements,
-      cachedCombinations,
-      achievements,
-      worldFirstDiscoveryCount
+      cachedCombinations
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [achievements, cachedCombinations, elements, ready, worldFirstDiscoveryCount]);
+  }, [cachedCombinations, elements, ready]);
 
   useEffect(() => {
     if (!ready) {
@@ -412,25 +447,87 @@ export function Game() {
   }, [ready, theme]);
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    const payload: AudioSettings = {
+      musicEnabled,
+      musicVolume,
+      sfxEnabled,
+      sfxVolume
+    };
+
+    window.localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+  }, [musicEnabled, musicVolume, ready, sfxEnabled, sfxVolume]);
+
+  useEffect(() => {
     latestPersistedStateRef.current = {
       discoveredElementNames: buildDiscoveredElementNames(elements),
       displayName,
       theme,
       revealedRecipeResults,
-      achievements,
-      worldFirstDiscoveryCount
+      achievements
     };
-  }, [achievements, displayName, elements, revealedRecipeResults, theme, worldFirstDiscoveryCount]);
+  }, [achievements, displayName, elements, revealedRecipeResults, theme]);
 
   useEffect(() => {
     if (session?.user) {
       return;
     }
 
-    guestProgressRef.current = latestPersistedStateRef.current;
-  }, [session?.user, achievements, displayName, elements, revealedRecipeResults, theme, worldFirstDiscoveryCount]);
+    guestProgressRef.current = {
+      ...latestPersistedStateRef.current,
+      achievements: []
+    };
+  }, [session?.user, achievements, displayName, elements, revealedRecipeResults, theme]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadRuntimeSupabaseConfig() {
+      try {
+        const response = await fetch("/api/runtime-config");
+        const payload = (await response.json()) as
+          | ({ configured: true } & BrowserSupabaseConfig)
+          | { configured: false };
+
+        if (!active) {
+          return;
+        }
+
+        if (!response.ok || !payload.configured) {
+          setSupabase(null);
+          setCloudSyncStatus("Sign-in unavailable until Supabase is configured.");
+          setSupabaseConfigReady(true);
+          return;
+        }
+
+        setSupabase(createBrowserSupabaseClient(payload));
+        setSupabaseConfigReady(true);
+      } catch {
+        if (!active) {
+          return;
+        }
+
+        setSupabase(null);
+        setCloudSyncStatus("Sign-in unavailable until Supabase is configured.");
+        setSupabaseConfigReady(true);
+      }
+    }
+
+    void loadRuntimeSupabaseConfig();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabaseConfigReady) {
+      return;
+    }
+
     let active = true;
 
     if (!supabase) {
@@ -471,6 +568,7 @@ export function Game() {
       if (!nextSession?.user) {
         setDisplayName("ForgeLab Alchemist");
         setTheme("default");
+        setAchievements([]);
       }
       lastCloudSnapshotRef.current = null;
     });
@@ -479,7 +577,7 @@ export function Game() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, supabaseConfigReady]);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -524,7 +622,7 @@ export function Game() {
       setCloudSyncStatus("Syncing cloud save...");
 
       const { data, error } = await getPlayerStatesTable(client)
-        .select("user_id, discovered_elements, display_name, theme, revealed_recipe_results, achievements, world_first_discovery_count, updated_at")
+        .select("user_id, discovered_elements, display_name, theme, revealed_recipe_results, achievements, updated_at")
         .eq("user_id", userId as string)
         .maybeSingle();
 
@@ -550,8 +648,7 @@ export function Game() {
             displayName: currentState.displayName,
             theme: currentState.theme,
             revealedRecipeResults: currentState.revealedRecipeResults,
-            achievements: currentState.achievements,
-            worldFirstDiscoveryCount: currentState.worldFirstDiscoveryCount
+            achievements: currentState.achievements
           });
 
           await getPlayerStatesTable(client).upsert({
@@ -561,7 +658,6 @@ export function Game() {
             theme: currentState.theme,
             revealed_recipe_results: currentState.revealedRecipeResults,
             achievements: currentState.achievements,
-            world_first_discovery_count: currentState.worldFirstDiscoveryCount,
             updated_at: new Date().toISOString()
           } as never);
 
@@ -594,8 +690,6 @@ export function Game() {
         row.display_name ?? "",
         getSessionFallbackDisplayName(session)
       );
-      const cloudWorldFirstDiscoveryCount =
-        typeof row.world_first_discovery_count === "number" ? row.world_first_discovery_count : 0;
       const mergedDiscoveredNames = Array.from(
         new Set([
           ...buildDiscoveredElementNames(STARTING_ELEMENTS),
@@ -607,8 +701,6 @@ export function Game() {
         new Set([...cloudRevealedRecipeResults, ...guestProgress.revealedRecipeResults])
       );
       const mergedAchievements = Array.from(new Set([...cloudAchievements, ...guestProgress.achievements]));
-      const mergedWorldFirstDiscoveryCount =
-        cloudWorldFirstDiscoveryCount + guestProgress.worldFirstDiscoveryCount;
       const uniqueDiscoveredNames = Array.from(
         new Set(mergedDiscoveredNames)
       );
@@ -679,14 +771,12 @@ export function Game() {
       setRevealedRecipeResults(mergedRevealedRecipeResults);
       setAchievements(mergedAchievements);
       setDisplayName(cloudDisplayName);
-      setWorldFirstDiscoveryCount(mergedWorldFirstDiscoveryCount);
       latestPersistedStateRef.current = {
         discoveredElementNames: uniqueDiscoveredNames,
         displayName: cloudDisplayName,
         theme: cloudTheme,
         revealedRecipeResults: mergedRevealedRecipeResults,
-        achievements: mergedAchievements,
-        worldFirstDiscoveryCount: mergedWorldFirstDiscoveryCount
+        achievements: mergedAchievements
       };
       const mergedSnapshot = JSON.stringify(latestPersistedStateRef.current);
 
@@ -695,8 +785,7 @@ export function Game() {
         displayName: cloudDisplayName,
         theme: cloudTheme,
         revealedRecipeResults: cloudRevealedRecipeResults,
-        achievements: cloudAchievements,
-        worldFirstDiscoveryCount: cloudWorldFirstDiscoveryCount
+        achievements: cloudAchievements
       });
 
       if (mergedSnapshot !== cloudSnapshot) {
@@ -707,7 +796,6 @@ export function Game() {
           theme: cloudTheme,
           revealed_recipe_results: mergedRevealedRecipeResults,
           achievements: mergedAchievements,
-          world_first_discovery_count: mergedWorldFirstDiscoveryCount,
           updated_at: new Date().toISOString()
         } as never);
 
@@ -720,8 +808,7 @@ export function Game() {
       lastCloudSnapshotRef.current = mergedSnapshot;
       setCloudSyncStatus("Cloud save loaded.");
       setMessage(
-        guestProgress.worldFirstDiscoveryCount > 0 ||
-          guestProgress.achievements.length > 0 ||
+        guestProgress.achievements.length > 0 ||
           guestProgress.discoveredElementNames.length > buildDiscoveredElementNames(STARTING_ELEMENTS).length
           ? "Cloud save loaded. Guest progress merged into your account."
           : "Cloud save loaded."
@@ -768,7 +855,6 @@ export function Game() {
         theme: currentPayload.theme,
         revealed_recipe_results: currentPayload.revealedRecipeResults,
         achievements: currentPayload.achievements,
-        world_first_discovery_count: currentPayload.worldFirstDiscoveryCount,
         updated_at: new Date().toISOString()
       } as never);
 
@@ -991,10 +1077,55 @@ export function Game() {
     [elements]
   );
 
+  const recipeBookEntries = useMemo(() => {
+    const entries = new Map<string, RecipeBookEntry>();
+
+    for (const entry of PREDEFINED_RECIPE_BOOK) {
+      entries.set(`${createPairKey(entry.first, entry.second)}::${entry.element}`, {
+        ...entry,
+        source: "predefined"
+      });
+    }
+
+    for (const entry of elements) {
+      if (!entry.discoveryFirstElement || !entry.discoverySecondElement) {
+        continue;
+      }
+
+      const key = `${createPairKey(entry.discoveryFirstElement, entry.discoverySecondElement)}::${entry.element}`;
+      if (entries.has(key)) {
+        continue;
+      }
+
+      entries.set(key, {
+        first: entry.discoveryFirstElement,
+        second: entry.discoverySecondElement,
+        emoji: entry.emoji,
+        element: entry.element,
+        source: "discovered"
+      });
+    }
+
+    return Array.from(entries.values()).sort((left, right) => {
+      const leftFound = discoveredElements.has(left.element);
+      const rightFound = discoveredElements.has(right.element);
+
+      if (leftFound !== rightFound) {
+        return leftFound ? -1 : 1;
+      }
+
+      if (left.source !== right.source) {
+        return left.source === "discovered" ? -1 : 1;
+      }
+
+      return left.element.localeCompare(right.element);
+    });
+  }, [discoveredElements, elements]);
+
   const filteredRecipeBook = useMemo(() => {
     const normalizedQuery = recipeSearchQuery.trim().toLowerCase();
 
-    return PREDEFINED_RECIPE_BOOK.filter((entry) => {
+    return recipeBookEntries.filter((entry) => {
       const matchesQuery =
         normalizedQuery.length === 0
           ? true
@@ -1013,19 +1144,31 @@ export function Game() {
         entry.first === recipeStarterFilter ||
         entry.second === recipeStarterFilter;
 
-      return matchesQuery && matchesVisibility && matchesStarter;
+      const matchesSource =
+        recipeSourceFilter === "all" ||
+        (recipeSourceFilter === "predefined" && entry.source === "predefined") ||
+        (recipeSourceFilter === "discovered" && entry.source === "discovered");
+
+      return matchesQuery && matchesVisibility && matchesStarter && matchesSource;
     });
-  }, [discoveredElements, recipeSearchQuery, recipeStarterFilter, recipeVisibilityFilter]);
+  }, [
+    discoveredElements,
+    recipeBookEntries,
+    recipeSearchQuery,
+    recipeSourceFilter,
+    recipeStarterFilter,
+    recipeVisibilityFilter
+  ]);
 
   const achievementState = useMemo(
     () => ({
       discoveredCount: elements.length,
-      worldFirstCount: worldFirstDiscoveryCount,
+      worldFirstCount: 0,
       revealedRecipeCount: revealedRecipeResults.length,
       isSignedIn: Boolean(session?.user),
       hasCustomTheme: theme !== "default"
     }),
-    [elements.length, revealedRecipeResults.length, session?.user, theme, worldFirstDiscoveryCount]
+    [elements.length, revealedRecipeResults.length, session?.user, theme]
   );
 
   const newlyUnlockedAchievementIds = useMemo(
@@ -1044,6 +1187,141 @@ export function Game() {
 
   const knownRecipePool = ALL_PREDEFINED_ELEMENTS.length + (sharedElementCount ?? 0);
   const unlockedAchievementCount = unlockedAchievementEntries.length;
+
+  function playSound(effect: SoundEffect) {
+    if (typeof window === "undefined" || !sfxEnabled || sfxVolume <= 0) {
+      return;
+    }
+
+    const source =
+      effect === "plop"
+        ? "/audio/plop.mp3"
+        : effect === "pop"
+          ? "/audio/pop.mp3"
+          : "/audio/discovery.mp3";
+
+    let audio = soundRefs.current[effect];
+    if (!audio) {
+      audio = new window.Audio(source);
+      audio.preload = "auto";
+      soundRefs.current[effect] = audio;
+    }
+
+    audio.volume = sfxVolume;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {
+      // Ignore playback failures before the player has interacted with the page.
+    });
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!musicRef.current) {
+      const audio = new window.Audio("/audio/workbench.mp3");
+      audio.loop = true;
+      audio.preload = "auto";
+      musicRef.current = audio;
+    }
+
+    const music = musicRef.current;
+    music.volume = musicEnabled ? musicVolume : 0;
+
+    async function tryStartMusic() {
+      if (!musicEnabled || musicVolume <= 0) {
+        music.pause();
+        return;
+      }
+
+      if (!audioUnlockedRef.current) {
+        return;
+      }
+
+      try {
+        await music.play();
+      } catch {
+        // Wait for the next user interaction if playback is still blocked.
+      }
+    }
+
+    void tryStartMusic();
+  }, [musicEnabled, musicVolume]);
+
+  useEffect(() => {
+    function unlockAudio() {
+      audioUnlockedRef.current = true;
+      if (!musicRef.current || !musicEnabled || musicVolume <= 0) {
+        return;
+      }
+
+      void musicRef.current.play().catch(() => {
+        // Ignore blocked autoplay and wait for the next interaction.
+      });
+    }
+
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio);
+
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, [musicEnabled, musicVolume]);
+
+  function renderAudioControls() {
+    return (
+      <div className="audio-controls-card">
+        <div className="audio-controls-header">
+          <p className="celebration-label">Audio</p>
+          <span>{musicEnabled || sfxEnabled ? "Live" : "Muted"}</span>
+        </div>
+
+        <label className="audio-toggle-row">
+          <span>Music</span>
+          <input
+            checked={musicEnabled}
+            onChange={(event) => setMusicEnabled(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+
+        <label className="audio-slider-row">
+          <span>Music volume</span>
+          <input
+            max="1"
+            min="0"
+            onChange={(event) => setMusicVolume(Number(event.target.value))}
+            step="0.05"
+            type="range"
+            value={musicVolume}
+          />
+        </label>
+
+        <label className="audio-toggle-row">
+          <span>Sound FX</span>
+          <input
+            checked={sfxEnabled}
+            onChange={(event) => setSfxEnabled(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+
+        <label className="audio-slider-row">
+          <span>SFX volume</span>
+          <input
+            max="1"
+            min="0"
+            onChange={(event) => setSfxVolume(Number(event.target.value))}
+            step="0.05"
+            type="range"
+            value={sfxVolume}
+          />
+        </label>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (newlyUnlockedAchievementIds.length === 0) {
@@ -1091,6 +1369,7 @@ export function Game() {
     const y = bounds ? Math.max(16, Math.min(bounds.height - ITEM_SIZE - 16, bounds.height / 2 - ITEM_SIZE / 2 + (Math.random() * 120 - 60))) : 120;
 
     setWorkbench((current) => [...current, createWorkbenchItem(element.element, element.emoji, x, y)]);
+    playSound("plop");
   }
 
   function addDiscoveredElementByName(elementName: string, source: "recipe-result" | "recipe-ingredient") {
@@ -1226,7 +1505,6 @@ export function Game() {
     }
 
     setTheme("default");
-    setWorldFirstDiscoveryCount(0);
     setAchievementGalleryOpen(false);
     setAchievementModal(null);
     setCloudSyncStatus("Signed out. Guest mode on this device.");
@@ -1422,6 +1700,7 @@ export function Game() {
     const y = Math.max(0, Math.min(maxY, item.y + 28));
 
     setWorkbench((current) => [...current, createWorkbenchItem(item.element, item.emoji, x, y)]);
+    playSound("plop");
     setMessage(`${item.element} duplicated on the workbench.`);
   }
 
@@ -1540,12 +1819,12 @@ export function Game() {
         element: result.element,
         emoji: result.emoji,
         flavorText: result.flavorText,
-        global: Boolean(result.isNewDiscovery)
+        global: false
       });
+      playSound("discovery");
 
-      if (result.isNewDiscovery) {
+      if (result.source === "openai") {
         setSharedElementCount((current) => (typeof current === "number" ? current + 1 : current));
-        setWorldFirstDiscoveryCount((current) => current + 1);
       }
 
       setShareStatus(null);
@@ -1612,6 +1891,7 @@ export function Game() {
     const resultX = (firstItem.x + secondItem.x) / 2;
     const resultY = (firstItem.y + secondItem.y) / 2;
     const processingItem = createProcessingItem(resultX, resultY);
+    playSound("pop");
 
     setWorkbench((current) => [
       ...current.filter((item) => item.id !== firstItem.id && item.id !== secondItem.id),
@@ -1721,6 +2001,8 @@ export function Game() {
               Achievement gallery
             </button>
 
+            {renderAudioControls()}
+
             <label className="sort-select">
               <span>Sort</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
@@ -1744,7 +2026,7 @@ export function Game() {
               </select>
             </label>
 
-            <div className={`stats-grid mobile-stats ${session?.user ? "" : "guest"}`}>
+            <div className="stats-grid mobile-stats">
               <div className="stat-card">
                 <span className="stat-label">Known recipe pool</span>
                 <strong>{knownRecipePool}</strong>
@@ -1753,12 +2035,6 @@ export function Game() {
                 <span className="stat-label">Discovered</span>
                 <strong>{elements.length}</strong>
               </div>
-              {session?.user ? (
-                <div className="stat-card">
-                  <span className="stat-label">World&apos;s firsts</span>
-                  <strong>{worldFirstDiscoveryCount}</strong>
-                </div>
-              ) : null}
             </div>
 
             <p className="menu-summary-copy">
@@ -1865,6 +2141,7 @@ export function Game() {
               <button className="menu-link-button" onClick={openAchievementGallery} type="button">
                 Achievement gallery
               </button>
+              {renderAudioControls()}
               <p className="desktop-menu-note">Theme and sort controls now live in the panel for quicker access.</p>
             </div>
           ) : null}
@@ -2027,7 +2304,7 @@ export function Game() {
             ) : null}
 
             <div className="stats-overlay desktop-only">
-              <div className={`stats-grid ${session?.user ? "" : "guest"}`}>
+              <div className="stats-grid">
                 <div className="stat-card">
                   <span className="stat-label">Known recipe pool</span>
                   <strong>{knownRecipePool}</strong>
@@ -2036,20 +2313,26 @@ export function Game() {
                   <span className="stat-label">Discovered</span>
                   <strong>{elements.length}</strong>
                 </div>
-                {session?.user ? (
-                  <div className="stat-card">
-                    <span className="stat-label">World&apos;s firsts</span>
-                    <strong>{worldFirstDiscoveryCount}</strong>
-                  </div>
-                ) : null}
               </div>
             </div>
 
-            {session?.user ? (
-              <button className="workbench-recipe-link desktop-only" onClick={openRecipeBook} type="button">
-                📖
-              </button>
-            ) : null}
+            <button
+              className="workbench-achievement-link desktop-only"
+              onClick={openAchievementGallery}
+              title="Open achievement gallery"
+              type="button"
+            >
+              🏆
+            </button>
+
+            <button
+              className="workbench-recipe-link desktop-only"
+              onClick={openRecipeBook}
+              title="Open recipe book"
+              type="button"
+            >
+              📖
+            </button>
 
             <button
               className="trash-zone"
@@ -2282,6 +2565,30 @@ export function Game() {
                 </button>
               </div>
 
+              <div className="recipe-book-filter-group" role="group" aria-label="Recipe source">
+                <button
+                  className={`recipe-filter-chip ${recipeSourceFilter === "all" ? "active" : ""}`}
+                  onClick={() => setRecipeSourceFilter("all")}
+                  type="button"
+                >
+                  All sources
+                </button>
+                <button
+                  className={`recipe-filter-chip ${recipeSourceFilter === "discovered" ? "active" : ""}`}
+                  onClick={() => setRecipeSourceFilter("discovered")}
+                  type="button"
+                >
+                  Your discoveries
+                </button>
+                <button
+                  className={`recipe-filter-chip ${recipeSourceFilter === "predefined" ? "active" : ""}`}
+                  onClick={() => setRecipeSourceFilter("predefined")}
+                  type="button"
+                >
+                  Handbook
+                </button>
+              </div>
+
               <label className="recipe-book-starter-filter">
                 <span>Starter family</span>
                 <select
@@ -2336,6 +2643,9 @@ export function Game() {
                     </div>
                     <div className="recipe-book-result">
                       <div className="recipe-book-result-stack">
+                        <span className={`recipe-book-source-badge ${entry.source === "discovered" ? "discovered" : ""}`}>
+                          {entry.source === "discovered" ? "Your discovery" : "Handbook"}
+                        </span>
                         <button
                           className={`recipe-book-token recipe-book-result-token ${
                             isFound || !isRevealed ? "clickable" : ""

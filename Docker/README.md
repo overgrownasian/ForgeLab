@@ -13,7 +13,21 @@ This folder contains everything needed to build and run `ForgeLab` in Docker.
 Run this from the project root:
 
 ```bash
-docker build -f Docker/Dockerfile -t forgelab .
+docker build \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=your-supabase-url \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key \
+  -f Docker/Dockerfile \
+  -t forgelab .
+```
+
+PowerShell version:
+
+```powershell
+docker build `
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=your-supabase-url `
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key `
+  -f Docker/Dockerfile `
+  -t forgelab .
 ```
 
 ## Run the container directly
@@ -51,5 +65,6 @@ docker compose -f Docker/compose.yaml up --build
 ## Notes
 
 - The container serves the app on port `3000`
-- Supabase and OpenAI credentials must be provided at runtime
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be present at build time and runtime
+- `OPENAI_API_KEY` and `OPENAI_MODEL` are still runtime environment variables
 - The build uses Next.js `standalone` output to keep the runtime image smaller
