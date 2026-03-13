@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFlavorText } from "@/lib/flavor-text";
 import {
   ALL_PREDEFINED_ELEMENTS,
+  PREDEFINED_RECIPE_BOOK,
   STARTING_ELEMENTS,
   createPairKey,
   getPredefinedResult
@@ -18,6 +19,7 @@ const ITEM_SIZE = 78;
 const THEMES = ["default", "fantasy", "sci-fi", "xianxia", "radar", "matrix", "solar"] as const;
 
 type ThemeName = (typeof THEMES)[number];
+type RecipeVisibilityFilter = "all" | "found" | "hidden";
 
 type CachedCombination = {
   element: string;
@@ -155,6 +157,10 @@ export function Game() {
     startY: number;
     target: HTMLElement;
   } | null>(null);
+  const suppressPaletteClickRef = useRef<{
+    element: string;
+    until: number;
+  } | null>(null);
   const lastWorkbenchTapRef = useRef<{ id: string; time: number } | null>(null);
   const lastTrashTapRef = useRef<number>(0);
   const [ready, setReady] = useState(false);
@@ -175,6 +181,10 @@ export function Game() {
   const [sharedElementCount, setSharedElementCount] = useState<number | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [recipeBookOpen, setRecipeBookOpen] = useState(false);
+  const [recipeSearchQuery, setRecipeSearchQuery] = useState("");
+  const [recipeVisibilityFilter, setRecipeVisibilityFilter] = useState<RecipeVisibilityFilter>("all");
+  const [recipeStarterFilter, setRecipeStarterFilter] = useState<string>("all");
 
   useEffect(() => {
     try {
@@ -346,6 +356,10 @@ export function Game() {
       const pendingTouch = pendingTouchPaletteRef.current;
       if (pendingTouch && pendingTouch.pointerId === event.pointerId) {
         pendingTouchPaletteRef.current = null;
+        suppressPaletteClickRef.current = {
+          element: pendingTouch.element.element,
+          until: Date.now() + 400
+        };
         addElementToWorkbench(pendingTouch.element);
       }
 
@@ -436,6 +450,10 @@ export function Game() {
           const tappedElement = elements.find((entry) => entry.element === paletteActive.element);
 
           if (tappedElement) {
+            suppressPaletteClickRef.current = {
+              element: tappedElement.element,
+              until: Date.now() + 400
+            };
             addElementToWorkbench(tappedElement);
           }
         }
@@ -473,6 +491,37 @@ export function Game() {
     );
   }, [elements, searchQuery, sortMode]);
 
+  const discoveredElements = useMemo(
+    () => new Set(elements.map((entry) => entry.element)),
+    [elements]
+  );
+
+  const filteredRecipeBook = useMemo(() => {
+    const normalizedQuery = recipeSearchQuery.trim().toLowerCase();
+
+    return PREDEFINED_RECIPE_BOOK.filter((entry) => {
+      const matchesQuery =
+        normalizedQuery.length === 0
+          ? true
+          : entry.first.toLowerCase().includes(normalizedQuery) ||
+            entry.second.toLowerCase().includes(normalizedQuery) ||
+            entry.element.toLowerCase().includes(normalizedQuery);
+
+      const isFound = discoveredElements.has(entry.element);
+      const matchesVisibility =
+        recipeVisibilityFilter === "all" ||
+        (recipeVisibilityFilter === "found" && isFound) ||
+        (recipeVisibilityFilter === "hidden" && !isFound);
+
+      const matchesStarter =
+        recipeStarterFilter === "all" ||
+        entry.first === recipeStarterFilter ||
+        entry.second === recipeStarterFilter;
+
+      return matchesQuery && matchesVisibility && matchesStarter;
+    });
+  }, [discoveredElements, recipeSearchQuery, recipeStarterFilter, recipeVisibilityFilter]);
+
   const knownRecipePool = ALL_PREDEFINED_ELEMENTS.length + (sharedElementCount ?? 0);
 
   function addElementToWorkbench(element: ElementRecord) {
@@ -481,6 +530,18 @@ export function Game() {
     const y = bounds ? Math.max(16, Math.min(bounds.height - ITEM_SIZE - 16, bounds.height / 2 - ITEM_SIZE / 2 + (Math.random() * 120 - 60))) : 120;
 
     setWorkbench((current) => [...current, createWorkbenchItem(element.element, element.emoji, x, y)]);
+  }
+
+  function addDiscoveredElementByName(elementName: string) {
+    const discoveredElement =
+      elements.find((entry) => entry.element === elementName) ??
+      ALL_PREDEFINED_ELEMENTS.find((entry) => entry.element === elementName);
+
+    if (!discoveredElement) {
+      return;
+    }
+
+    addElementToWorkbench(discoveredElement);
   }
 
   function clearWorkbench() {
@@ -528,6 +589,12 @@ export function Game() {
   function handleThemeChange(nextTheme: ThemeName) {
     setTheme(nextTheme);
     setMessage(`${nextTheme.charAt(0).toUpperCase()}${nextTheme.slice(1)} theme activated.`);
+  }
+
+  function openRecipeBook() {
+    setDesktopMenuOpen(false);
+    setMobileMenuOpen(false);
+    setRecipeBookOpen(true);
   }
 
   function beginDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
@@ -604,6 +671,8 @@ export function Game() {
   }
 
   function beginPaletteInteraction(event: React.PointerEvent<HTMLElement>, element: ElementRecord) {
+    event.preventDefault();
+
     if (event.pointerType === "touch") {
       pendingTouchPaletteRef.current = {
         element,
@@ -618,7 +687,13 @@ export function Game() {
     beginPaletteDrag(event, element);
   }
 
-  function handleElementTileClick(element: ElementRecord) {
+  function handleElementTileDoubleClick(element: ElementRecord) {
+    const suppressed = suppressPaletteClickRef.current;
+    if (suppressed && suppressed.element === element.element && suppressed.until > Date.now()) {
+      suppressPaletteClickRef.current = null;
+      return;
+    }
+
     addElementToWorkbench(element);
   }
 
@@ -634,6 +709,10 @@ export function Game() {
   }
 
   function duplicateWorkbenchItem(item: WorkbenchItem) {
+    if (item.isProcessing) {
+      return;
+    }
+
     const bounds = boardRef.current?.getBoundingClientRect();
     const maxX = bounds ? bounds.width - ITEM_SIZE : item.x + 24;
     const maxY = bounds ? bounds.height - ITEM_SIZE : item.y + 24;
@@ -815,6 +894,10 @@ export function Game() {
   }
 
   async function combineItems(firstItem: WorkbenchItem, secondItem: WorkbenchItem) {
+    if (firstItem.isProcessing || secondItem.isProcessing) {
+      return;
+    }
+
     const key = createPairKey(firstItem.element, secondItem.element);
     if (pendingPair === key) {
       return;
@@ -888,6 +971,10 @@ export function Game() {
           </div>
 
           <div className="mobile-menu-grid">
+            <button className="menu-link-button" onClick={openRecipeBook} type="button">
+              Recipe book
+            </button>
+
             <label className="sort-select">
               <span>Sort</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
@@ -984,33 +1071,25 @@ export function Game() {
 
           {desktopMenuOpen ? (
             <div className="desktop-menu-panel" ref={desktopMenuRef}>
-              <label className="sort-select">
-                <span>Theme</span>
-                <select value={theme} onChange={(event) => handleThemeChange(event.target.value as ThemeName)}>
-                  <option value="default">Default</option>
-                  <option value="fantasy">Fantasy</option>
-                  <option value="sci-fi">Sci-Fi</option>
-                  <option value="xianxia">Xianxia</option>
-                  <option value="radar">Radar</option>
-                  <option value="matrix">Matrix</option>
-                  <option value="solar">Solar</option>
-                </select>
-              </label>
-              <p className="desktop-menu-note">More menu options can live here later.</p>
+              <button className="menu-link-button" onClick={openRecipeBook} type="button">
+                Recipe book
+              </button>
+              <p className="desktop-menu-note">Theme and sort controls now live in the panel for quicker access.</p>
             </div>
           ) : null}
 
-          <div className="desktop-controls">
-            <label className="sort-select">
-              <span>Sort</span>
-              <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                <option value="az">A-Z</option>
-                <option value="za">Z-A</option>
-                <option value="recent">Most recent</option>
-                <option value="oldest">Oldest</option>
-              </select>
-            </label>
-          </div>
+          <label className="sort-select theme-select panel-desktop-only">
+            <span>Theme</span>
+            <select value={theme} onChange={(event) => handleThemeChange(event.target.value as ThemeName)}>
+              <option value="default">Default</option>
+              <option value="fantasy">Fantasy</option>
+              <option value="sci-fi">Sci-Fi</option>
+              <option value="xianxia">Xianxia</option>
+              <option value="radar">Radar</option>
+              <option value="matrix">Matrix</option>
+              <option value="solar">Solar</option>
+            </select>
+          </label>
 
           <input
             className="element-search"
@@ -1020,36 +1099,57 @@ export function Game() {
             value={searchQuery}
           />
 
+          <div className="sort-links panel-desktop-only" role="group" aria-label="Sort elements">
+            <button
+              className={`sort-link ${sortMode === "az" ? "active" : ""}`}
+              onClick={() => setSortMode("az")}
+              type="button"
+            >
+              ↑AZ
+            </button>
+            <button
+              className={`sort-link ${sortMode === "za" ? "active" : ""}`}
+              onClick={() => setSortMode("za")}
+              type="button"
+            >
+              ↓AZ
+            </button>
+            <button
+              className={`sort-link ${sortMode === "oldest" ? "active" : ""}`}
+              onClick={() => setSortMode("oldest")}
+              type="button"
+            >
+              ↑🕒
+            </button>
+            <button
+              className={`sort-link ${sortMode === "recent" ? "active" : ""}`}
+              onClick={() => setSortMode("recent")}
+              type="button"
+            >
+              ↓🕒
+            </button>
+          </div>
+
           <p className="panel-note desktop-only">Double-click any element to place it on the workbench.</p>
 
           <div className="element-list">
             {sortedElements.map((entry) => (
-              <div
+              <button
                 key={entry.element}
                 className="element-chip"
+                onDoubleClick={() => handleElementTileDoubleClick(entry)}
+                onPointerDown={(event) => {
+                  beginPaletteInteraction(event, entry);
+                }}
+                type="button"
                 title={`${entry.element}: ${entry.flavorText}`}
               >
-                <span
-                  className="chip-drag-zone"
-                  onPointerDown={(event) => {
-                    beginPaletteInteraction(event, entry);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  title={`Drag ${entry.element} to the workbench`}
-                >
+                <span className="chip-drag-zone" aria-hidden="true">
                   <span className="chip-drag-handle">⋮⋮</span>
                   <span className="chip-emoji">{entry.emoji}</span>
                 </span>
-                <button
-                  className="chip-name-button"
-                  onClick={() => handleElementTileClick(entry)}
-                  type="button"
-                  title={`Add ${entry.element} to the workbench`}
-                >
-                  <span className="chip-name">{entry.element}</span>
-                </button>
-              </div>
+                <span className="chip-name">{entry.element}</span>
+              </button>
             ))}
           </div>
         </aside>
@@ -1110,7 +1210,7 @@ export function Game() {
               <button
                 key={item.id}
                 className={`workbench-item ${item.isProcessing ? "processing" : ""}`}
-                onDoubleClick={() => duplicateWorkbenchItem(item)}
+                onDoubleClick={item.isProcessing ? undefined : () => duplicateWorkbenchItem(item)}
                 onPointerDown={(event) => beginDrag(event, item.id)}
                 style={{ left: item.x, top: item.y }}
                 type="button"
@@ -1234,6 +1334,123 @@ export function Game() {
               >
                 {confirmation.confirmLabel}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {recipeBookOpen ? (
+        <div className="recipe-book-backdrop" onClick={() => setRecipeBookOpen(false)} role="presentation">
+          <div
+            className="recipe-book-card"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recipe-book-title"
+          >
+            <div className="recipe-book-header">
+              <div>
+                <p className="celebration-label">Reference</p>
+                <h3 id="recipe-book-title">Recipe book</h3>
+              </div>
+              <button className="ghost-button" onClick={() => setRecipeBookOpen(false)} type="button">
+                Close
+              </button>
+            </div>
+
+            <input
+              className="recipe-book-search"
+              onChange={(event) => setRecipeSearchQuery(event.target.value)}
+              placeholder="Search recipes"
+              type="search"
+              value={recipeSearchQuery}
+            />
+
+            <div className="recipe-book-filters">
+              <div className="recipe-book-filter-group" role="group" aria-label="Recipe visibility">
+                <button
+                  className={`recipe-filter-chip ${recipeVisibilityFilter === "all" ? "active" : ""}`}
+                  onClick={() => setRecipeVisibilityFilter("all")}
+                  type="button"
+                >
+                  All
+                </button>
+                <button
+                  className={`recipe-filter-chip ${recipeVisibilityFilter === "found" ? "active" : ""}`}
+                  onClick={() => setRecipeVisibilityFilter("found")}
+                  type="button"
+                >
+                  Found
+                </button>
+                <button
+                  className={`recipe-filter-chip ${recipeVisibilityFilter === "hidden" ? "active" : ""}`}
+                  onClick={() => setRecipeVisibilityFilter("hidden")}
+                  type="button"
+                >
+                  Hidden
+                </button>
+              </div>
+
+              <label className="recipe-book-starter-filter">
+                <span>Starter family</span>
+                <select
+                  onChange={(event) => setRecipeStarterFilter(event.target.value)}
+                  value={recipeStarterFilter}
+                >
+                  <option value="all">All families</option>
+                  {STARTING_ELEMENTS.map((entry) => (
+                    <option key={entry.element} value={entry.element}>
+                      {entry.element}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="recipe-book-list">
+              {filteredRecipeBook.map((entry) => {
+                const isFound = discoveredElements.has(entry.element);
+                const canAddFirst = discoveredElements.has(entry.first);
+                const canAddSecond = discoveredElements.has(entry.second);
+
+                return (
+                  <div className="recipe-book-entry" key={`${entry.first}-${entry.second}-${entry.element}`}>
+                    <div className="recipe-book-parts">
+                      <button
+                        className={`recipe-book-token ${canAddFirst ? "clickable" : ""}`}
+                        disabled={!canAddFirst}
+                        onClick={() => addDiscoveredElementByName(entry.first)}
+                        type="button"
+                      >
+                        {entry.first}
+                      </button>
+                      <span className="recipe-book-plus">+</span>
+                      <button
+                        className={`recipe-book-token ${canAddSecond ? "clickable" : ""}`}
+                        disabled={!canAddSecond}
+                        onClick={() => addDiscoveredElementByName(entry.second)}
+                        type="button"
+                      >
+                        {entry.second}
+                      </button>
+                    </div>
+                    <div className="recipe-book-result">
+                      <button
+                        className={`recipe-book-token recipe-book-result-token ${isFound ? "clickable" : ""}`}
+                        disabled={!isFound}
+                        onClick={() => addDiscoveredElementByName(entry.element)}
+                        type="button"
+                      >
+                        <span>{entry.emoji}</span>
+                        <span>{entry.element}</span>
+                      </button>
+                    </div>
+                    <span className={`recipe-book-status ${isFound ? "known" : ""}`}>
+                      {isFound ? "Found" : "Hidden"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

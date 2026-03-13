@@ -3,6 +3,13 @@ import { buildFlavorText } from "@/lib/flavor-text";
 
 type RecipeTuple = [string, string, string, string];
 
+export type PredefinedRecipeBookEntry = {
+  first: string;
+  second: string;
+  emoji: string;
+  element: string;
+};
+
 export const STARTING_ELEMENTS: ElementRecord[] = [
   { element: "Earth", emoji: "🌍", flavorText: buildFlavorText("Earth"), discoveredAt: 0, isStarter: true },
   { element: "Air", emoji: "💨", flavorText: buildFlavorText("Air"), discoveredAt: 1, isStarter: true },
@@ -302,6 +309,15 @@ export const PREDEFINED_RECIPES = new Map<string, RecipeResult>(
       source: "predefined" as const
     }
   ])
+);
+
+export const PREDEFINED_RECIPE_BOOK: PredefinedRecipeBookEntry[] = RECIPES.map(
+  ([first, second, emoji, element]) => ({
+    first,
+    second,
+    emoji,
+    element
+  })
 );
 
 export function getPredefinedResult(first: string, second: string) {

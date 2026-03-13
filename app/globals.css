@@ -1,4 +1,20 @@
 :root {
+  --font-sans:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif;
+  --font-mono:
+    "SFMono-Regular",
+    SFMono-Regular,
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
   --bg: #120f0a;
   --bg-deep: #1d140d;
   --app-background:
@@ -216,8 +232,23 @@ select {
   background:
     linear-gradient(var(--board-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--board-line) 1px, transparent 1px),
+    radial-gradient(circle at 18% 22%, rgba(244, 219, 179, 0.08), transparent 20%),
+    radial-gradient(circle at 78% 70%, rgba(159, 191, 157, 0.06), transparent 22%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(244, 219, 179, 0.03) 0 2px,
+      rgba(122, 82, 49, 0.015) 2px 5px,
+      transparent 5px 11px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(244, 219, 179, 0.02) 0 3px,
+      rgba(93, 58, 40, 0.012) 3px 8px,
+      transparent 8px 17px
+    ),
     radial-gradient(circle at top, var(--board-glow), transparent 22%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(106, 73, 48, 0.16), rgba(48, 30, 23, 0.12)),
     var(--board-surface);
 }
 
@@ -303,6 +334,72 @@ select {
   --trash-fill: rgba(3, 7, 3, 0.86);
   --workbench-item-bg: linear-gradient(180deg, rgba(125, 255, 125, 0.12), rgba(125, 255, 125, 0.03));
   --processing-bg: linear-gradient(180deg, rgba(125, 255, 125, 0.18), rgba(255, 255, 255, 0.02));
+}
+
+.page-shell.theme-matrix .workbench {
+  background:
+    radial-gradient(circle at top, var(--board-glow), transparent 24%),
+    linear-gradient(180deg, rgba(3, 10, 3, 0.92), rgba(0, 4, 0, 0.99));
+}
+
+.page-shell.theme-matrix .workbench::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='360' viewBox='0 0 128 360'%3E%3Crect width='128' height='360' fill='none'/%3E%3Cg fill='%237dff7d' fill-opacity='0.16' font-family='monospace' font-size='13'%3E%3Ctext x='12' y='-170'%3E%3Ctspan x='12' dy='15'%3E0%3C/tspan%3E%3Ctspan x='12' dy='15'%3E1%3C/tspan%3E%3Ctspan x='12' dy='15'%3EZ%3C/tspan%3E%3Ctspan x='12' dy='15'%3EK%3C/tspan%3E%3Ctspan x='12' dy='15'%3E9%3C/tspan%3E%3Ctspan x='12' dy='15'%3EM%3C/tspan%3E%3Ctspan x='12' dy='15'%3EN%3C/tspan%3E%3Ctspan x='12' dy='15'%3E7%3C/tspan%3E%3Ctspan x='12' dy='15'%3EQ%3C/tspan%3E%3Ctspan x='12' dy='15'%3EW%3C/tspan%3E%3Ctspan x='12' dy='15'%3E8%3C/tspan%3E%3Ctspan x='12' dy='15'%3EE%3C/tspan%3E%3Ctspan x='12' dy='15'%3E5%3C/tspan%3E%3Ctspan x='12' dy='15'%3ER%3C/tspan%3E%3Ctspan x='12' dy='15'%3E2%3C/tspan%3E%3Ctspan x='12' dy='15'%3EY%3C/tspan%3E%3Ctspan x='12' dy='15'%3E4%3C/tspan%3E%3Ctspan x='12' dy='15'%3EU%3C/tspan%3E%3Ctspan x='12' dy='15'%3E3%3C/tspan%3E%3Ctspan x='12' dy='15'%3EP%3C/tspan%3E%3CanimateTransform attributeName='transform' type='translate' values='0 -150;0 390' dur='11s' repeatCount='indefinite'/%3E%3C/text%3E%3Ctext x='38' y='-250'%3E%3Ctspan x='38' dy='15'%3E7%3C/tspan%3E%3Ctspan x='38' dy='15'%3EH%3C/tspan%3E%3Ctspan x='38' dy='15'%3E2%3C/tspan%3E%3Ctspan x='38' dy='15'%3ED%3C/tspan%3E%3Ctspan x='38' dy='15'%3E8%3C/tspan%3E%3Ctspan x='38' dy='15'%3ES%3C/tspan%3E%3Ctspan x='38' dy='15'%3E1%3C/tspan%3E%3Ctspan x='38' dy='15'%3EA%3C/tspan%3E%3Ctspan x='38' dy='15'%3E0%3C/tspan%3E%3Ctspan x='38' dy='15'%3EL%3C/tspan%3E%3Ctspan x='38' dy='15'%3E5%3C/tspan%3E%3Ctspan x='38' dy='15'%3EP%3C/tspan%3E%3Ctspan x='38' dy='15'%3E3%3C/tspan%3E%3Ctspan x='38' dy='15'%3EX%3C/tspan%3E%3Ctspan x='38' dy='15'%3E9%3C/tspan%3E%3Ctspan x='38' dy='15'%3EV%3C/tspan%3E%3Ctspan x='38' dy='15'%3E4%3C/tspan%3E%3Ctspan x='38' dy='15'%3EC%3C/tspan%3E%3Ctspan x='38' dy='15'%3E6%3C/tspan%3E%3Ctspan x='38' dy='15'%3EN%3C/tspan%3E%3CanimateTransform attributeName='transform' type='translate' values='0 -240;0 320' dur='14s' repeatCount='indefinite'/%3E%3C/text%3E%3Ctext x='64' y='-110'%3E%3Ctspan x='64' dy='15'%3E3%3C/tspan%3E%3Ctspan x='64' dy='15'%3EF%3C/tspan%3E%3Ctspan x='64' dy='15'%3E6%3C/tspan%3E%3Ctspan x='64' dy='15'%3EJ%3C/tspan%3E%3Ctspan x='64' dy='15'%3E1%3C/tspan%3E%3Ctspan x='64' dy='15'%3EK%3C/tspan%3E%3Ctspan x='64' dy='15'%3E8%3C/tspan%3E%3Ctspan x='64' dy='15'%3ER%3C/tspan%3E%3Ctspan x='64' dy='15'%3E2%3C/tspan%3E%3Ctspan x='64' dy='15'%3ET%3C/tspan%3E%3Ctspan x='64' dy='15'%3E9%3C/tspan%3E%3Ctspan x='64' dy='15'%3EU%3C/tspan%3E%3Ctspan x='64' dy='15'%3E4%3C/tspan%3E%3Ctspan x='64' dy='15'%3EW%3C/tspan%3E%3Ctspan x='64' dy='15'%3E0%3C/tspan%3E%3Ctspan x='64' dy='15'%3EX%3C/tspan%3E%3Ctspan x='64' dy='15'%3E5%3C/tspan%3E%3Ctspan x='64' dy='15'%3EZ%3C/tspan%3E%3Ctspan x='64' dy='15'%3E7%3C/tspan%3E%3Ctspan x='64' dy='15'%3EQ%3C/tspan%3E%3CanimateTransform attributeName='transform' type='translate' values='0 -90;0 410' dur='9.5s' repeatCount='indefinite'/%3E%3C/text%3E%3Ctext x='90' y='-220'%3E%3Ctspan x='90' dy='15'%3E5%3C/tspan%3E%3Ctspan x='90' dy='15'%3EC%3C/tspan%3E%3Ctspan x='90' dy='15'%3E8%3C/tspan%3E%3Ctspan x='90' dy='15'%3EV%3C/tspan%3E%3Ctspan x='90' dy='15'%3E2%3C/tspan%3E%3Ctspan x='90' dy='15'%3EB%3C/tspan%3E%3Ctspan x='90' dy='15'%3E7%3C/tspan%3E%3Ctspan x='90' dy='15'%3EN%3C/tspan%3E%3Ctspan x='90' dy='15'%3E1%3C/tspan%3E%3Ctspan x='90' dy='15'%3EM%3C/tspan%3E%3Ctspan x='90' dy='15'%3E4%3C/tspan%3E%3Ctspan x='90' dy='15'%3EL%3C/tspan%3E%3Ctspan x='90' dy='15'%3E9%3C/tspan%3E%3Ctspan x='90' dy='15'%3EK%3C/tspan%3E%3Ctspan x='90' dy='15'%3E3%3C/tspan%3E%3Ctspan x='90' dy='15'%3EJ%3C/tspan%3E%3Ctspan x='90' dy='15'%3E6%3C/tspan%3E%3Ctspan x='90' dy='15'%3EH%3C/tspan%3E%3Ctspan x='90' dy='15'%3E0%3C/tspan%3E%3Ctspan x='90' dy='15'%3ED%3C/tspan%3E%3CanimateTransform attributeName='transform' type='translate' values='0 -210;0 350' dur='12.5s' repeatCount='indefinite'/%3E%3C/text%3E%3Ctext x='116' y='-140'%3E%3Ctspan x='116' dy='15'%3EY%3C/tspan%3E%3Ctspan x='116' dy='15'%3E2%3C/tspan%3E%3Ctspan x='116' dy='15'%3EW%3C/tspan%3E%3Ctspan x='116' dy='15'%3EC%3C/tspan%3E%3Ctspan x='116' dy='15'%3E5%3C/tspan%3E%3Ctspan x='116' dy='15'%3EV%3C/tspan%3E%3Ctspan x='116' dy='15'%3E7%3C/tspan%3E%3Ctspan x='116' dy='15'%3ET%3C/tspan%3E%3Ctspan x='116' dy='15'%3EB%3C/tspan%3E%3Ctspan x='116' dy='15'%3EH%3C/tspan%3E%3Ctspan x='116' dy='15'%3E3%3C/tspan%3E%3Ctspan x='116' dy='15'%3EJ%3C/tspan%3E%3Ctspan x='116' dy='15'%3ED%3C/tspan%3E%3Ctspan x='116' dy='15'%3EU%3C/tspan%3E%3Ctspan x='116' dy='15'%3E9%3C/tspan%3E%3Ctspan x='116' dy='15'%3EA%3C/tspan%3E%3Ctspan x='116' dy='15'%3ER%3C/tspan%3E%3Ctspan x='116' dy='15'%3E1%3C/tspan%3E%3Ctspan x='116' dy='15'%3EN%3C/tspan%3E%3Ctspan x='116' dy='15'%3EX%3C/tspan%3E%3CanimateTransform attributeName='transform' type='translate' values='0 -120;0 400' dur='10.5s' repeatCount='indefinite'/%3E%3C/text%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 360px;
+  background-position: 0 0;
+  opacity: 0.24;
+  filter: blur(0.15px);
+  pointer-events: none;
+  animation: matrix-rain-pan 18s linear infinite;
+}
+
+.page-shell.theme-matrix .workbench::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 16%, transparent 82%, rgba(0, 0, 0, 0.18)),
+    radial-gradient(circle at 50% 12%, rgba(125, 255, 125, 0.08), transparent 32%);
+  pointer-events: none;
+}
+
+.page-shell.theme-matrix .workbench > .empty-workbench,
+.page-shell.theme-matrix .workbench > .workbench-item,
+.page-shell.theme-matrix .workbench > .workbench-item.ghost {
+  z-index: 1;
+}
+
+.page-shell.theme-matrix .stats-overlay {
+  z-index: 3;
+}
+
+.page-shell.theme-matrix .stat-card {
+  background: linear-gradient(180deg, rgba(10, 13, 8, 0.96), rgba(8, 10, 7, 0.94));
+  border-color: rgba(125, 255, 125, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(165, 255, 165, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.page-shell.theme-matrix .stat-card strong {
+  color: #f4fff4;
+}
+
+.page-shell.theme-matrix .stat-label {
+  color: #a5ffa5;
+}
+
+@keyframes matrix-rain-pan {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 0 360px;
+  }
 }
 
 .page-shell.theme-solar {
@@ -443,10 +540,8 @@ p {
   display: none !important;
 }
 
-.desktop-controls {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
+.panel-desktop-only {
+  display: inherit;
 }
 
 .stats-overlay {
@@ -566,6 +661,24 @@ p {
   line-height: 1.45;
 }
 
+.menu-link-button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.menu-link-button:hover,
+.menu-link-button:focus-visible {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
 .panel-toggle {
   display: none;
   min-width: 40px;
@@ -597,6 +710,10 @@ p {
   color: var(--muted);
 }
 
+.theme-select {
+  margin-top: 10px;
+}
+
 .sort-select select,
 .search-field input {
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -622,6 +739,42 @@ p {
   border-radius: 10px;
   background: color-mix(in srgb, var(--panel-strong) 72%, black 28%);
   color: var(--text);
+}
+
+.sort-links {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  justify-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.sort-link {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.sort-link:hover,
+.sort-link:focus-visible {
+  color: var(--text);
+}
+
+.sort-link.active {
+  color: var(--accent);
 }
 
 .panel-note {
@@ -653,12 +806,19 @@ p {
   text-align: left;
   touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  cursor: pointer;
 }
 
 .element-chip:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 179, 71, 0.45);
   background: var(--chip-hover-fill);
+}
+
+.element-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, white 22%);
+  outline-offset: 2px;
 }
 
 .chip-drag-zone {
@@ -668,6 +828,7 @@ p {
   flex: 0 0 auto;
   cursor: grab;
   touch-action: none;
+  pointer-events: none;
 }
 
 .chip-emoji {
@@ -681,18 +842,9 @@ p {
 }
 
 .chip-name {
+  flex: 1;
   font-size: 0.92rem;
   font-weight: 600;
-}
-
-.chip-name-button {
-  flex: 1;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .chip-drag-handle {
@@ -884,6 +1036,175 @@ p {
   place-items: center;
   padding: 24px;
   background: rgba(7, 6, 5, 0.72);
+}
+
+.recipe-book-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 6, 5, 0.74);
+}
+
+.recipe-book-card {
+  width: min(100%, 760px);
+  max-height: min(82vh, 760px);
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.recipe-book-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recipe-book-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 72%, black 28%);
+  color: var(--text);
+}
+
+.recipe-book-filters {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.recipe-book-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-filter-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.recipe-filter-chip:hover,
+.recipe-filter-chip:focus-visible {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.recipe-filter-chip.active {
+  background: rgba(255, 179, 71, 0.12);
+  border-color: rgba(255, 179, 71, 0.2);
+  color: var(--accent);
+}
+
+.recipe-book-starter-filter {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 180px);
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.recipe-book-starter-filter select {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--panel-strong) 72%, black 28%);
+  color: var(--text);
+}
+
+.recipe-book-list {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  align-content: start;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.recipe-book-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.recipe-book-parts,
+.recipe-book-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.recipe-book-token {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.recipe-book-token.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 179, 71, 0.28);
+  text-underline-offset: 0.14em;
+}
+
+.recipe-book-token:disabled {
+  opacity: 0.58;
+}
+
+.recipe-book-result-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.recipe-book-plus {
+  color: var(--accent);
+}
+
+.recipe-book-status {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.recipe-book-status.known {
+  background: rgba(125, 255, 125, 0.12);
+  color: var(--accent);
 }
 
 .confirmation-card {
@@ -1171,6 +1492,10 @@ p {
     display: inline-flex !important;
   }
 
+  .panel-desktop-only {
+    display: none !important;
+  }
+
   .panel-toggle {
     display: inline-flex;
   }
@@ -1274,6 +1599,30 @@ p {
   .mobile-action-grid {
     display: grid;
     gap: 10px;
+  }
+
+  .recipe-book-backdrop {
+    padding: 10px;
+  }
+
+  .recipe-book-card {
+    max-height: min(88vh, 820px);
+    padding: 16px;
+  }
+
+  .recipe-book-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recipe-book-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recipe-book-entry {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
   }
 
   .panel-actions {
